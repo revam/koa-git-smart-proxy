@@ -1,17 +1,17 @@
 // from packages
-import * as send from 'koa-send';
-import * as HttpCodes from 'http-status';
-import * as through from 'through';
-import { exists } from 'fs';
-import { resolve } from 'path';
-import { promisify } from 'util';
 import { spawn } from 'child_process';
+import { exists } from 'fs';
+import { IncomingHttpHeaders, OutgoingHttpHeaders } from 'http';
+import * as HttpCodes from 'http-status';
+import * as send from 'koa-send';
+import { resolve } from 'path';
+import * as through from 'through';
+import { promisify } from 'util';
+import { Context, Middleware } from 'koa'; // tslint:disable-line
 import { Readable, Writable } from 'stream';
-import { Context, Middleware } from 'koa';
 import { createGunzip } from 'zlib';
 // from library
 import { GitSourceDuplex } from './lib/source';
-import { OutgoingHttpHeaders, IncomingHttpHeaders } from 'http';
 
 export enum ServiceType {
   UNKNOWN,
@@ -39,16 +39,16 @@ const valid_services = new Set<string>(['upload-pack', 'receive-pack']);
 
 const Matches = new Map<ServiceType, MatchEntry>([
   [ServiceType.PULL, {
-    match: /^\/?(.*?)\/git-upload-pack$/,
     content_type: 'application/x-git-upload-pack-result',
+    match: /^\/?(.*?)\/git-upload-pack$/,
   }],
   [ServiceType.PUSH, {
-    match:/^\/?(.*?)\/git-receive-pack$/,
     content_type: 'application/x-git-receive-pack-result',
+    match: /^\/?(.*?)\/git-receive-pack$/,
   }],
   [ServiceType.REFS, {
-    match: /^\/?(.*?)\/info\/refs$/,
     content_type: 'application/x-git-%s-advertisement',
+    match: /^\/?(.*?)\/info\/refs$/,
   }],
   [ServiceType.HEAD, {
     match: /^\/?(.*?)\/HEAD$/,
@@ -57,26 +57,26 @@ const Matches = new Map<ServiceType, MatchEntry>([
     match: /^\/?(.*?)\/objects\/info\/(?:http-)?alternates$/,
   }],
   [ServiceType.PACKS, {
-    match: /^\/?(.*?)\/objects\/info\/packs$/,
     content_type: 'text/plain; charset=utf-8"',
+    match: /^\/?(.*?)\/objects\/info\/packs$/,
   }],
   [ServiceType.INFO, {
     match: /^\/?(.*?)\/objects\/info\/[^/]*?$/,
   }],
   [ServiceType.OBJECT, {
-    match: /^\/?(.*?)\/objects\/[0-9a-f]{2}\/[0-9a-f]{38}$/,
-    content_type: 'application/x-git-loose-object',
     cache: true,
+    content_type: 'application/x-git-loose-object',
+    match: /^\/?(.*?)\/objects\/[0-9a-f]{2}\/[0-9a-f]{38}$/,
   }],
   [ServiceType.PACK, {
-    match: /^\/?(.*?)\/objects\/pack\/pack-[0-9a-f]{40}\.pack$/,
-    content_type: 'application/x-git-packed-objects',
     cache: true,
+    content_type: 'application/x-git-packed-objects',
+    match: /^\/?(.*?)\/objects\/pack\/pack-[0-9a-f]{40}\.pack$/,
   }],
   [ServiceType.INDEX, {
-    match: /^\/?(.*?)\/objects\/pack\/pack-[0-9a-f]{40}\.idx$/,
-    content_type: 'application/x-git-packed-objects-toc',
     cache: true,
+    content_type: 'application/x-git-packed-objects-toc',
+    match: /^\/?(.*?)\/objects\/pack\/pack-[0-9a-f]{40}\.idx$/,
   }],
 ]);
 
@@ -89,7 +89,7 @@ interface MatchEntry {
 export const SymbolSource = Symbol('source');
 
 export interface WritableBand extends Writable {
-  __next?: (err?: Error) => void;
+  __next?(err?: Error): void;
   __buffer?: Buffer;
 }
 
@@ -98,18 +98,16 @@ export interface RPCResult {
   input: Writable;
 }
 
-export interface RPCCommand {
-  (commmand: string, repo_path: string, args: string[]): RPCResult|Promise<RPCResult>
-}
+export type RPCCommand = (commmand: string, repo_path: string, args: string[]) =>
+  RPCResult | Promise<RPCResult>;
 
 export interface ResourceResult {
-  headers: OutgoingHttpHeaders
+  headers: OutgoingHttpHeaders;
   body: Readable;
 }
 
-export interface ResourceCommand {
-  (file_path: string, repo_path: string, headers: IncomingHttpHeaders): ResourceResult|Promise<ResourceResult>;
-}
+export type ResourceCommand = (file_path: string, repo_path: string, headers: IncomingHttpHeaders) =>
+  ResourceResult | Promise<ResourceResult>;
 
 export interface GitProxyOptions {
   context: Context;
@@ -147,7 +145,7 @@ export interface MiddlewareOptions {
   /**
    * Can either be a string to the local root folder, an object with options.
    */
-  git?: GitExecutableOptions|GitCommandOptions;
+  git?: GitExecutableOptions | GitCommandOptions;
 
   /**
    * Where to store proxy in `Context.state`. Defaults to `'proxy'`.
@@ -156,7 +154,7 @@ export interface MiddlewareOptions {
   /**
    * If set, then automatically accepts/rejects request if no action has been taken.
    */
-  auto_deploy?: boolean
+  auto_deploy?: boolean;
 }
 
 export class GitProxy {
@@ -186,10 +184,10 @@ export class GitProxy {
       return this;
     }
 
-    let refs = this.service === ServiceType.REFS;
+    const refs = this.service === ServiceType.REFS;
     if (refs || post_types.has(this.service)) {
       const ctx = this.__context;
-      const service = get_service(refs? ctx.query.service : path);
+      const service = get_service(refs ? ctx.query.service : path);
 
       if (!service) {
         this.__service = ServiceType.UNKNOWN;
@@ -204,8 +202,8 @@ export class GitProxy {
       }
 
       this[SymbolSource] = new GitSourceDuplex({
-        proxy: this,
         command: options.rpc_command,
+        proxy: this,
         service,
       });
 
@@ -240,7 +238,7 @@ export class GitProxy {
 
       // Halt when no commit
       if (!(source.hasInfo || source.commit)) {
-        this.__service =ServiceType.UNKNOWN;
+        this.__service = ServiceType.UNKNOWN;
 
         return;
       }
@@ -295,7 +293,7 @@ export class GitProxy {
       const {headers, body} = await this.__command(this.__file, repo_path, ctx.headers);
 
       for (const header of Reflect.ownKeys(headers) as string[]) {
-        ctx.set(header, headers[header] as string|string[]);
+        ctx.set(header, headers[header] as string | string[]);
       }
 
       this.set_headers();
@@ -319,7 +317,8 @@ export class GitProxy {
 
     this.__status = AcceptStatus.REJECTED;
 
-    let reason: string, status: number;
+    let reason: string;
+    let status: number;
     if ('string' === typeof ar2) {
       reason = ar1;
       status = ar1;
@@ -345,7 +344,7 @@ export class GitProxy {
   }
 
   public create_band(): WritableBand {
-    const band = new Writable as WritableBand;
+    const band = new Writable() as WritableBand;
 
     band._write = (buffer, encoding, next) => {
       band.__buffer = buffer;
@@ -357,13 +356,14 @@ export class GitProxy {
     return band;
   }
 
-  private match(): {type?: ServiceType, path?: string, repository: string} {
+  private match(): {type?: ServiceType; path?: string; repository: string} {
     const ctx = this.__context;
 
     for (const [type, {match}] of Matches) {
-      const results = match.exec(ctx.path)
+      const results = match.exec(ctx.path);
+
       if (results) {
-        const method = post_types.has(type)? 'POST' : 'GET';
+        const method = post_types.has(type) ? 'POST' : 'GET';
 
         if (method !== ctx.method) {
           return;
@@ -378,13 +378,14 @@ export class GitProxy {
   }
 
   private set_headers() {
-    let {cache = false, content_type = 'text/plain'} = Matches.get(this.service);
+    const match = Matches.get(this.service);
+    let content_type = match.content_type || 'text/plain';
 
     if (this.service === ServiceType.REFS) {
-      content_type = content_type.replace('%s', this[SymbolSource].service)
+      content_type = content_type.replace('%s', this[SymbolSource].service);
     }
 
-    this.set_cache_options(cache);
+    this.set_cache_options(match.cache);
     this.__context.set('content-type', content_type);
   }
 
@@ -392,7 +393,7 @@ export class GitProxy {
     const ctx = this.__context;
 
     if (cache) {
-      const now = new Date;
+      const now = new Date();
       const date = now.toUTCString();
       const expires = new Date(now.valueOf() + 31536000).toUTCString();
       this.__context.set('date', date);
@@ -405,7 +406,7 @@ export class GitProxy {
     }
   }
 
-  static async create(options: GitProxyOptions) {
+  public static async create(options: GitProxyOptions) {
     const service = new GitProxy(options);
 
     // Wait till ready
@@ -416,10 +417,11 @@ export class GitProxy {
     return service;
   }
 
-  static middleware(options: MiddlewareOptions = {}): Middleware {
+  public static middleware(options: MiddlewareOptions = {}): Middleware {
     const {key_name = 'proxy', auto_deploy} = options;
 
-    let rpc_command: RPCCommand, res_command: ResourceCommand;
+    let rpc_command: RPCCommand;
+    let res_command: ResourceCommand;
     if ('object' === typeof options.git &&
       'function' === typeof (options.git as GitCommandOptions).rpc &&
       'function' === typeof (options.git as GitCommandOptions).resource
@@ -427,7 +429,8 @@ export class GitProxy {
         rpc_command = (options.git as GitCommandOptions).rpc;
         res_command = (options.git as GitCommandOptions).resource;
     } else {
-      let runtime: string, root_folder: string;
+      let runtime: string;
+      let root_folder: string;
       if ('object' === typeof options.git) {
         const git = options.git as GitExecutableOptions;
         runtime = git.executable_path || 'git';
@@ -437,7 +440,7 @@ export class GitProxy {
       runtime = runtime || 'git';
       root_folder = root_folder || process.cwd();
 
-      rpc_command = function git_command(c: string, r: string, a: string[]) {
+      rpc_command = (c, r, a) => {
         const f = resolve(root_folder, r);
 
         const ps = spawn(runtime, [c, ...a, f]);
@@ -445,11 +448,12 @@ export class GitProxy {
         return {output: ps.stdout, input: ps.stdin};
       };
       // Get headers and body from koa-send
-      res_command = function res_command(f, r, h) {
+      res_command = (f, r, h) => {
         const headers: OutgoingHttpHeaders = {};
         const fake_context = {
+          body: undefined,
           throw(code: number, reason: string) {
-            let err = new Error(reason) as any;
+            const err = new Error(reason) as any;
             err.status = code;
 
             throw err;
@@ -462,12 +466,12 @@ export class GitProxy {
               if (Reflect.has(headers, header)) {
                 delete headers[header];
               }
-            }
+            },
           },
           response: {
             get(header: string) {
               return headers[header];
-            }
+            },
           },
           set(header: string, value: string) {
             headers[header] = value;
@@ -475,8 +479,7 @@ export class GitProxy {
           set type(value: string) {
             this.set('Content-Type', value);
           },
-          body: undefined
-        }
+        };
 
         try {
           // @ts-ignore
@@ -490,29 +493,27 @@ export class GitProxy {
 
           throw err;
         }
-      }
+      };
     }
 
-    return async function (context, next) {
+    return async(context, next) => {
       // @ts-ignore Were mixing two incomparable types
       const proxy = context.state[key_name] = await GitProxy.create({
-        rpc_command,
-        res_command,
         context,
+        res_command,
+        rpc_command,
       });
-
-      proxy.accept()
 
       await next();
 
       if (undefined !== auto_deploy && proxy.status === AcceptStatus.PENDING) {
-        return auto_deploy? proxy.accept() : proxy.reject();
+        return auto_deploy ? proxy.accept() : proxy.reject();
       }
-    }
+    };
   }
 }
 
-function get_service(input: string): 'receive-pack'|'upload-pack' {
+function get_service(input: string): 'receive-pack' | 'upload-pack' {
   if (!(input && input.startsWith('git-'))) {
     return;
   }

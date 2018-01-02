@@ -1,24 +1,24 @@
 // from packages
 import * as encode from 'git-side-band-message';
-import * as through from 'through';
 import { Duplex } from 'stream';
+import * as through from 'through';
 // from library
-import { GitProxy, SymbolSource, ServiceType, RPCCommand } from '../';
+import { GitProxy, RPCCommand, ServiceType, SymbolSource } from '../';
 
 const zero_buffer = new Buffer('0000');
 const services = {
-  'upload-pack': {
-    match: /^\S+ ([0-9a-f]{40})/,
-    fields: ['commit'],
-  },
   'receive-pack': {
-    match: /([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/(?:heads|tags)\/[^ \u0000]+)(?: |00|\u0000)|^(?:0000)$/,
     fields: ['last_commit', 'commit', 'refname'],
+    match: /([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/(?:heads|tags)\/[^ \u0000]+)(?: |00|\u0000)|^(?:0000)$/,
+  },
+  'upload-pack': {
+    fields: ['commit'],
+    match: /^\S+ ([0-9a-f]{40})/,
   },
 };
 
-export interface SourceDuplex extends Duplex {
-  __next?: (err?: Error) => void;
+interface SourceDuplex extends Duplex {
+  __next?(err?: Error): void;
   __buffer?: Buffer;
 }
 
@@ -27,26 +27,25 @@ export const SymbolProxy = Symbol('proxy');
 export interface GitDuplexDuplexOptions {
   proxy: GitProxy;
   command: RPCCommand;
-  service: 'receive-pack'|'upload-pack';
+  service: 'receive-pack' | 'upload-pack';
 }
 
 export class GitSourceDuplex extends Duplex {
   public refname?: string;
   public commit?: string;
   public last_commit?: string;
-  public readonly service: 'receive-pack'|'upload-pack';
+  public readonly service: 'receive-pack' | 'upload-pack';
 
   // @ts-ignore suppress error [1166]
   private [SymbolProxy]: GitProxy;
   // @ts-ignore suppress error [1166]
   private [SymbolSource]: SourceDuplex;
-  private __needs_flush: boolean = false;
+  private __needs_flush = false;
   private __command: RPCCommand;
-  private __ready: number|false = false;
-  private __parsed: boolean = false;
+  private __ready: number | false = false;
+  private __parsed = false;
   private __next?: (err?: Error) => void;
   private __buffer?: Buffer;
-
 
   constructor(options: GitDuplexDuplexOptions) {
     super();
@@ -56,7 +55,7 @@ export class GitSourceDuplex extends Duplex {
     this.service = options.service;
 
     this.once('parsed', () => {
-      const source = this[SymbolSource] = new Duplex as SourceDuplex;
+      const source = this[SymbolSource] = new Duplex() as SourceDuplex;
 
       source._write = (buffer: Buffer, encoding, next) => {
         // dont send terminate signal
@@ -88,28 +87,30 @@ export class GitSourceDuplex extends Duplex {
         }
       };
 
-      source.on('error', err => this.emit('error', err));
+      source.on('error', (err) => this.emit('error', err));
 
       const bands = this[SymbolProxy].bands;
       const flush = () => {
         if (bands.length) {
-          var band = bands.shift();
+          const band = bands.shift();
+
           band._write = function _write(buf, enc, next) {
               this.push(encode(buf));
               next();
           };
+
           band.on('finish', flush);
 
           const buffer = band.__buffer;
-          const next = band.__next;
-          delete band.__buffer;
-          delete band.__next;
+          const done = band.__next;
 
           if (buffer) {
+            delete band.__buffer;
             this.push(encode(buffer));
           }
-          if (next) {
-            next();
+          if (done) {
+            delete band.__next;
+            done();
           }
 
           return;
@@ -141,7 +142,7 @@ export class GitSourceDuplex extends Duplex {
     return this[SymbolProxy].service === ServiceType.REFS;
   }
 
-  _write(buffer, enc, next) {
+  public _write(buffer, enc, next) {
     if (this[SymbolSource]) {
       this.__next = next;
       this[SymbolSource].push(buffer);
@@ -154,8 +155,8 @@ export class GitSourceDuplex extends Duplex {
     }
 
     const {match, fields} = services[this.service];
-    const string = buffer.slice(0, 512).toString('utf8');
-    const results = match.exec(string);
+    const body = buffer.slice(0, 512).toString('utf8');
+    const results = match.exec(body);
     if (results) {
       this.__buffer = buffer;
       this.__next = next;
@@ -176,7 +177,7 @@ export class GitSourceDuplex extends Duplex {
     }
   }
 
-  _read(size) {
+  public _read(size) {
     const source = this[SymbolSource];
 
     if (source && source.__next) {
@@ -191,17 +192,17 @@ export class GitSourceDuplex extends Duplex {
     }
   }
 
-  wait() {
-    return new Promise<void>(resolve => {
+  public wait() {
+    return new Promise<void>((resolve) => {
       if (this.__parsed) {
         return resolve();
       }
 
-      this.once('parsed', () => resolve());
+      this.once('parsed', resolve);
     });
   }
 
-  async attach(repo_path: string) {
+  public async attach(repo_path: string) {
     const args = ['--stateless-rpc'];
 
     if (this.hasInfo) {
@@ -211,8 +212,8 @@ export class GitSourceDuplex extends Duplex {
     const source = this[SymbolSource];
     const {output, input} = await this.__command(this.service, repo_path, args);
 
-    output.on('error', err => this.emit('error', err));
-    input.on('error', err => this.emit('error', err));
+    output.on('error', (err) => this.emit('error', err));
+    input.on('error', (err) => this.emit('error', err));
 
     output.
     // Split at line-feed
@@ -229,7 +230,7 @@ export class GitSourceDuplex extends Duplex {
           break;
         }
 
-        if (~position) {
+        if (position + 1) {
           // Slice till line-feed
           const new_buffer = buffer.slice(last, position + 1);
           this.queue(new_buffer);
@@ -248,6 +249,6 @@ export class GitSourceDuplex extends Duplex {
 }
 
 function pack (input: string) {
-  var number = (4 + input.length).toString(16);
-  return '0'.repeat(4 - number.length) + number + input;
+  const size = (4 + input.length).toString(16);
+  return '0'.repeat(4 - size.length) + size + input;
 }
