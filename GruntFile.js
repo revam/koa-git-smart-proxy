@@ -20,10 +20,9 @@ module.exports = function(grunt) {
       for (const {rootdir, basedir, basepath, fullpath, entry, basename, extname} of iteratedir('src')) {
         if ('.ts' === extname) {
           let base = join(new_root, fullpath.slice(rootdir.length, -(extname.length)));
-          files.push(`${base}.d.ts`);
-          files.push(`${base}.js`);
-          files.push(`${base}.js.map`);
-          if (basedir) {
+          files.push(`${base}.d.ts`, `${base}.js`, `${base}.js.map`);
+
+          if (basedir.length > 2) {
             base = join(new_root, basedir) + sep;
             if (!folders.includes(base)) {
               folders.push(base);
@@ -32,21 +31,26 @@ module.exports = function(grunt) {
         }
       }
 
-      folders.sort((a, b) => b - a);
+      grunt.verbose.writeln(`Removing ${files.length} files`);
 
-      console.log(files);
-      console.log(folders);
-
-      // Remove files generated from typescript source
+      // Remove files generated from typescript source (in parallel)
       await Promise.all(files.map(async(file) => {
         if (await promisify(fs.exists)(file)) {
+          grunt.verbose.writeln(`Removing file: '${file}'`);
           await promisify(fs.unlink)(file);
         }
       }));
 
-      // Remove empty folders
+      // Delete longest paths first
+      folders.sort((a, b) => b - a);
+
+      // Remove empty folders (in parallel)
       await Promise.all(folders.map(async(folder) => {
-        if (!(await promisify(fs.readdir)(folder)).length) {
+        if (
+          await promisify(fs.exists)(folder) && ! (
+          await promisify(fs.readdir)(folder) ).length
+        ) {
+          grunt.verbose.writeln(`Removing empty folder: '${folder}'`);
           await promisify(fs.rmdir)(folder);
         }
       }));
