@@ -1,0 +1,48 @@
+{
+  "name": "koa-git-proxy",
+  "version": "1.0.0",
+  "description": "A proxy library for custom git deploy logic for koa.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "ts-mocha tests/**/*.test.ts",
+    "build": "tsc -p .",
+    "prepublish": "tsc -p . --sourceMap false",
+    "postpublish": "grunt del-list"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/revam/koa-git-proxy.git"
+  },
+  "keywords": [
+    "git",
+    "push",
+    "pull",
+    "proxy",
+    "http",
+    "repository",
+    "web",
+    "deploy"
+  ],
+  "author": "Mikal Stordal <mikalstordal@gmail.com> (https://github/revam)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/revam/koa-git-proxy/issues"
+  },
+  "homepage": "https://github.com/revam/koa-git-proxy#readme",
+  "devDependencies": {
+    "@types/http-status": "^0.2.30",
+    "@types/koa": "^2.0.43",
+    "@types/koa-send": "^4.1.1",
+    "@types/node": "^8.5.2",
+    "@types/through": "0.0.29",
+    "grunt": "^1.0.1",
+    "typescript": "^2.6.2"
+  },
+  "dependencies": {
+    "git-side-band-message": "0.0.3",
+    "http-status": "^1.0.1",
+    "koa-send": "^4.1.2",
+    "through": "^2.3.8"
+  }
+}
