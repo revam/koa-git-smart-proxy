@@ -6,6 +6,7 @@
     "outDir": "./",
     "target": "es2017",
     "module": "commonjs",
+    "moduleResolution": "node",
     "declaration": true,
     "sourceMap": true,
     "lib": [
