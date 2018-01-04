@@ -15,7 +15,5 @@
       "esnext"
     ]
   },
-  "exclude": [
-
-  ]
+  "exclude": []
 }
