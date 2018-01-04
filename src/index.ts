@@ -448,7 +448,7 @@ export class GitProxy {
         return {output: ps.stdout, input: ps.stdin};
       };
       // Get headers and body from koa-send
-      res_command = (f, r, h) => {
+      res_command = async(f, r, h) => {
         const headers: OutgoingHttpHeaders = {};
         const fake_context = {
           body: undefined,
