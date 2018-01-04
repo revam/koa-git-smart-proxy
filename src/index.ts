@@ -11,7 +11,7 @@ import { Context, Middleware } from 'koa'; // tslint:disable-line
 import { Readable, Writable } from 'stream';
 import { createGunzip } from 'zlib';
 // from library
-import { GitSourceDuplex } from './lib/source';
+import { GitSourceDuplex } from './source';
 
 export enum ServiceType {
   UNKNOWN,

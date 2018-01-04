@@ -6,7 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # Ignore built sources
-GruntFile.js
+lib/
 
 # Runtime data
 pids

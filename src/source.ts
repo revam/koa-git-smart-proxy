@@ -3,7 +3,7 @@ import * as encode from 'git-side-band-message';
 import { Duplex } from 'stream';
 import * as through from 'through';
 // from library
-import { GitProxy, RPCCommand, ServiceType, SymbolSource } from '../';
+import { GitProxy, RPCCommand, ServiceType, SymbolSource } from '.';
 
 const zero_buffer = new Buffer('0000');
 const services = {

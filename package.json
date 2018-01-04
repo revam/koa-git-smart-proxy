@@ -2,19 +2,16 @@
   "name": "koa-git-proxy",
   "version": "1.0.0",
   "description": "A proxy library for custom git deploy logic for koa.",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
-    "lint": "grunt lint",
-    "test": "grunt test",
-    "build": "grunt build",
-    "build-grunt": "tsc GruntFile.ts --target esnext --moduleResolution node --module commonjs",
-    "cleanup": "grunt cleanup",
-    "prelint": "npm run build-grunt && grunt prelint",
-    "pretest": "npm run lint && grunt pretest",
-    "prebuild": "npm run test && grunt prebuild",
-    "prepublish": "npm run build && grunt run prebublish",
-    "postpublish": "grunt postpublish"
+    "lint": "tsc --noEmit -p . && tslint src/**/*.ts",
+    "test": "jest",
+    "build": "tsc -p .",
+    "pretest": "npm run lint",
+    "prebuild": "npm run test",
+    "prepublish": "npm run build",
+    "postpublish": "del-cli lib"
   },
   "repository": {
     "type": "git",
@@ -39,17 +36,14 @@
   "devDependencies": {
     "@types/grunt": "^0.4.22",
     "@types/http-status": "^0.2.30",
+    "@types/jest": "^22.0.0",
     "@types/koa": "^2.0.43",
     "@types/koa-send": "^4.1.1",
-    "@types/mocha": "^2.2.45",
     "@types/node": "^8.5.2",
     "@types/through": "0.0.29",
-    "grunt": "^1.0.1",
-    "grunt-mocha": "^1.0.4",
-    "grunt-ts": "^6.0.0-beta.17",
-    "grunt-tslint": "^5.0.1",
-    "mocha": "^4.1.0",
-    "ts-node": "^4.1.0",
+    "del-cli": "^1.1.0",
+    "jest": "^22.0.4",
+    "ts-jest": "^22.0.0",
     "tslint": "^5.8.0",
     "typescript": "^2.6.2"
   },
@@ -58,5 +52,19 @@
     "http-status": "^1.0.1",
     "koa-send": "^4.1.2",
     "through": "^2.3.8"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json",
+      "node"
+    ]
   }
 }
