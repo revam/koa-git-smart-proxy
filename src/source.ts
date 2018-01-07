@@ -274,17 +274,3 @@ interface WritableBand extends Writable {
   __next?(err?: Error): void;
   __buffer?: Buffer;
 }
-
-function read_pkt_line(buffer: Buffer): string | false {
-  const marker = buffer.slice(0, 1).toString('utf8') === '00';
-  const length = parseInt(buffer.slice(2, 3).toString('utf8'), 16);
-
-  console.log(marker, length);
-
-  return;
-}
-
-export function pkt_line (input: string) {
-  const size = (4 + input.length).toString(16);
-  return '0'.repeat(4 - size.length) + size + input;
-}
