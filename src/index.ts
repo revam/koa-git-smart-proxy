@@ -85,8 +85,12 @@ export class GitSmartProxy {
 
       let pipe: Readable = ctx.req;
 
+      pipe.on('error', (err) => ctx.throw(err));
+
       if ('gzip' === ctx.get('content-encoding')) {
         pipe = pipe.pipe(createGunzip());
+
+        pipe.on('error', (err) => ctx.throw(err));
       }
 
       // Split chunck at line-feed
@@ -112,6 +116,9 @@ export class GitSmartProxy {
           this.queue(buffer.slice(offset));
         }
       }));
+
+      pipe.on('error', (err) => ctx.throw(err));
+      this[SymbolSource].on('error', (err) => ctx.throw(err));
 
       pipe.pipe(this[SymbolSource]);
     }
