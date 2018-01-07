@@ -25,7 +25,6 @@ export enum ServiceType {
   INFO,
   PULL,
   PUSH,
-  TAG,
 }
 
 export enum AcceptStatus {
@@ -134,11 +133,6 @@ export class GitSmartProxy {
 
     // Fill metadata
     Object.assign(this.metadata, source.metadata);
-
-    // Switch to tag
-    if (this.service === ServiceType.PUSH && source.metadata.refname.includes('/tags/')) {
-      this.__service = ServiceType.TAG;
-    }
   }
 
   public async accept(): Promise<void>;
