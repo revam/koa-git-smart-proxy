@@ -138,7 +138,14 @@ app.use(match({
 
 ## Typescript
 
-Includes a [index.d.ts](./dist/index.d.ts) built from source.
+This module includes a [TypeScript](https://www.typescriptlang.org/)
+declaration file to enable auto complete in compatible editors and type
+information for TypeScript projects. This module depends on the Node.js
+types, so install `@types/node`:
+
+```sh
+npm install --save-dev @types/node
+```
 
 ## License
 Licensed under the MIT License, see [LICENSE](./LICENSE).
