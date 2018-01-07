@@ -5,18 +5,13 @@ import * as through from 'through';
 import { promisify } from 'util';
 // from library
 import { GitSmartProxy, ServiceType } from '.';
+import { pkt_length } from './helpers';
 
 const zero_buffer = new Buffer('0000');
 
 const matches = {
-  'receive-pack': {
-    fields: ['last_commit', 'commit', 'refname'],
-    match: /([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/(?:heads|tags)\/[^ \u0000]+)(?: |00|\u0000)|^(?:0000)$/,
-  },
-  'upload-pack': {
-    fields: ['commit'],
-    match: /^\S+ ([0-9a-f]{40})/,
-  },
+  'receive-pack': /^[0-9a-f]{4}([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/([^\/]+)\/(.*?))(?:\n?$|\u0000([^\n]*)\n?$)/,
+  'upload-pack':  /^[0-9a-f]{4}(want|have) ([0-9a-f]{40})\n?$/,
 };
 
 // Hardcoded headers
@@ -28,6 +23,17 @@ const headers = {
 export const SymbolSource = Symbol('source stream');
 
 export const SymbolVerbose = Symbol('verbose stream');
+
+export interface GitMetadata {
+  want?: string[];
+  have?: string[];
+  reftype?: string;
+  refname?: string;
+  ref?: string;
+  old_commit?: string;
+  new_commit?: string;
+  capabilities?: string[];
+}
 
 export interface GitCommandResult {
   output: Readable;
@@ -43,7 +49,7 @@ export interface GitStreamOptions {
 }
 
 export class GitStream extends Duplex {
-  public readonly metadata: {[key: string]: string} = {};
+  public readonly metadata: GitMetadata = {};
   public readonly service: 'upload-pack' | 'receive-pack';
   public readonly hasInfo: boolean;
 
@@ -70,8 +76,13 @@ export class GitStream extends Duplex {
         // compare last 4 bytes to terminate signal (0000)
         if (buffer.length && buffer.slice(buffer.length - 4).equals(zero_buffer)) {
           this.__needs_flush = true;
-        } else {
+          this.push(buffer.slice(0, -4));
+        // We wern't finished, so append signal and continue.
+        } else if (this.__needs_flush) {
           this.__needs_flush = false;
+          this.push(zero_buffer);
+          this.push(buffer);
+        } else {
           this.push(buffer);
         }
 
@@ -218,7 +229,7 @@ export class UploadStream extends GitStream {
     super(options);
   }
 
-  public _write(buffer, enc, next) {
+  public async _write(buffer, enc, next) {
     if (this[SymbolSource]) {
       this.__next = next;
       this[SymbolSource].push(buffer);
@@ -226,11 +237,31 @@ export class UploadStream extends GitStream {
       return;
     }
 
-    if (this.__buffer) {
-      buffer = Buffer.concat([this.__buffer, buffer]);
-    }
+    // Stack buffers till fully parsed
+    this.__buffer = Buffer.concat([this.__buffer || Buffer.alloc(0), buffer]);
 
-    // TODO: Read each pkt-line, and add every 'want' and 'have' to metadata.
+    const length = pkt_length(buffer);
+
+    // Parse till we reach specal signal (0000) or unrecognisable data.
+    if (length <= 0) {
+      this.__next = next;
+      this.emit('parsed');
+    } else {
+      const message = buffer.toString('utf8');
+      const results = matches[this.service].exec(message);
+
+      if (results) {
+        const type = results[1];
+
+        if (!(type in this.metadata)) {
+          this.metadata[type] = [];
+        }
+
+        this.metadata[type].push(results[2]);
+      }
+
+      next();
+    }
   }
 }
 
@@ -241,7 +272,7 @@ export class ReceiveStream extends GitStream {
     super(options);
   }
 
-  public _write(buffer, enc, next) {
+  public async _write(buffer, enc, next) {
     if (this[SymbolSource]) {
       this.__next = next;
       this[SymbolSource].push(buffer);
@@ -249,11 +280,36 @@ export class ReceiveStream extends GitStream {
       return;
     }
 
-    if (this.__buffer) {
-      buffer = Buffer.concat([this.__buffer, buffer]);
-    }
+    // Stack buffers till fully parsed
+    this.__buffer = Buffer.concat([this.__buffer || Buffer.alloc(0), buffer]);
 
-    // TODO: Read each pkt-line till we reach terminal signal (0000). Add metadata.
+    const length = pkt_length(buffer);
+
+    // Parse till we reach specal signal (0000) or unrecognisable data.
+    if (length <= 0) {
+      this.__next = next;
+      this.emit('parsed');
+    } else {
+      const message = buffer.toString('utf8');
+      const results = matches[this.service].exec(message);
+
+      if (results) {
+        let type = results[4];
+
+        if (type.endsWith('s')) {
+          type = type.slice(0, -1);
+        }
+
+        this.metadata.old_commit = results[1];
+        this.metadata.new_commit = results[2];
+        this.metadata.ref = results[3];
+        this.metadata.reftype = type;
+        this.metadata.refname = results[5];
+        this.metadata.capabilities = results[6] ? results[6].trim().split(' ') : [];
+      }
+
+      next();
+    }
   }
 }
 

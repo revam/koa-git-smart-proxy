@@ -11,11 +11,11 @@ import { Context, Middleware } from 'koa'; // tslint:disable-line
 import { Readable, Writable } from 'stream';
 import { createGunzip } from 'zlib';
 // from library
-import { GitCommand, GitStream, ReceiveStream, UploadStream } from './source';
+import { GitCommand, GitMetadata, GitStream, ReceiveStream, UploadStream } from './source';
 
 // See https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
 
-export { GitCommand, GitCommandResult } from './source';
+export { GitCommand, GitCommandResult, GitMetadata } from './source';
 
 export const SymbolSource = Symbol('source');
 
@@ -43,7 +43,7 @@ const match_array = new Map<ServiceType, [string, RegExp]>([
 
 export class GitSmartProxy {
   public repository: string;
-  public readonly metadata: {[key: string]: string} = {};
+  public readonly metadata: GitMetadata = {};
 
   // @ts-ignore suppress error [1166]
   private [SymbolSource]?: GitStream;
