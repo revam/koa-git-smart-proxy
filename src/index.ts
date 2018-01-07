@@ -65,20 +65,22 @@ export class GitSmartProxy {
       return this;
     }
 
+    const has_info = this.service === ServiceType.INFO;
+
     this[SymbolSource] = service === 'upload-pack'
     // Upload pack
     ? new UploadStream({
         command: options.command,
-        proxy: this,
+        has_info,
       })
     // Receive pack
     : new ReceiveStream({
         command: options.command,
-        proxy: this,
+        has_info,
       });
 
     // We have a request body to pipe
-    if (this.service !== ServiceType.INFO) {
+    if (!has_info) {
       const ctx = this.__context;
 
       let pipe: Readable = ctx.req;
@@ -86,6 +88,32 @@ export class GitSmartProxy {
       if ('gzip' === ctx.get('content-encoding')) {
         pipe = pipe.pipe(createGunzip());
       }
+
+      // Split chunck at line-feed
+      pipe = pipe.pipe(through(function write(buffer: Buffer) {
+        let last: number;
+        let position = -1;
+        do {
+          last = position + 1;
+          position = buffer.indexOf(10, last);
+
+          // Don't slice buffers ending with line-feed
+          if (last === 0 && position === buffer.length - 1) {
+            this.queue(buffer);
+            break;
+          }
+
+          if (position >= 0) {
+            // Slice till line-feed
+            const new_buffer = buffer.slice(last, position + 1);
+            this.queue(new_buffer);
+          } else {
+            // Slice remaining
+            const new_buffer = buffer.slice(last);
+            this.queue(new_buffer);
+          }
+        } while (position !== -1);
+      }));
 
       pipe.pipe(this[SymbolSource]);
     }
@@ -106,10 +134,10 @@ export class GitSmartProxy {
     await source.wait();
 
     // Fill metadata
-    Object.assign(this.metadata, source.info);
+    Object.assign(this.metadata, source.metadata);
 
     // Switch to tag
-    if (this.service === ServiceType.PUSH && source.info.refname.includes('/tags/')) {
+    if (this.service === ServiceType.PUSH && source.metadata.refname.includes('/tags/')) {
       this.__service = ServiceType.TAG;
     }
   }
