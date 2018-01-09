@@ -296,8 +296,19 @@ export class GitSmartProxy {
 
       await next();
 
-      // Accept/Reject if auto_deploy is set
+      // If auto_deploy defined is and status is still pending -> deploy
       if (undefined !== auto_deploy && proxy.status === AcceptStatus.PENDING) {
+        // No repository -> Repository not found
+        if (!proxy.repository) {
+          return proxy.reject(HttpCodes.NOT_FOUND);
+        }
+
+        // Unknown service -> Forbidden (see link at top)
+        if (proxy.service !== ServiceType.UNKNOWN) {
+          return proxy.reject(HttpCodes.FORBIDDEN);
+        }
+
+        // Accept or reject? That is the question.
         return auto_deploy ? proxy.accept() : proxy.reject();
       }
     };
