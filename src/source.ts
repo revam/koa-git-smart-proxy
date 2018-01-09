@@ -227,10 +227,6 @@ export class GitStream extends Duplex {
 export class UploadStream extends GitStream {
   public readonly service = 'upload-pack';
 
-  constructor(options?: GitStreamOptions) {
-    super(options);
-  }
-
   public async _write(buffer, enc, next) {
     if (this[SymbolSource]) {
       this.__next = next;
@@ -269,10 +265,6 @@ export class UploadStream extends GitStream {
 
 export class ReceiveStream extends GitStream {
   public readonly service = 'receive-pack';
-
-  constructor(options?: GitStreamOptions) {
-    super(options);
-  }
 
   public async _write(buffer, enc, next) {
     if (this[SymbolSource]) {
@@ -314,14 +306,6 @@ export class ReceiveStream extends GitStream {
     }
   }
 }
-
-// // Set service name
-// function service_name (input: string) {
-//   const size = (4 + input.length).toString(16);
-//   let message = '0'.repeat(4 - size.length) + size + input;
-//   message += '0000';
-//   return message;
-// }
 
 interface SourceDuplex extends Duplex {
   __next?(err?: Error): void;
