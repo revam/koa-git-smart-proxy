@@ -42,12 +42,12 @@ function create_source({input, output, messages, has_input, Stream}: CreateSourc
 }
 
 describe('UploadStream', () => {
-  it('should just pipe output when no input', async(done) => {
+  it('should just pipe output when no input, but don\'t inspect it.', async(done) => {
     let buffer2: Buffer;
     const buffers: Buffer[] = [];
 
-    const buffer1 = readFileSync('./test/source.test.refs.bin');
-    const output = createReadStream('./test/source.test.refs.bin');
+    const buffer1 = Buffer.from('SUPER SECRET NUCLEAR LAUNCH CODE: "1234"');
+    const output = intoStream(buffer1);
 
     const source = create_source({
       Stream: UploadStream,
@@ -112,12 +112,12 @@ describe('UploadStream', () => {
 });
 
 describe('ReceiveStream', () => {
-  it('should just pipe output when no input', async(done) => {
+  it('should just pipe output when no input, but don\'t inspect it.', async(done) => {
     let buffer2: Buffer;
     const buffers: Buffer[] = [];
 
-    const buffer1 = readFileSync('./test/source.test.refs.bin');
-    const output = createReadStream('./test/source.test.refs.bin');
+    const buffer1 = Buffer.from('SUPER SECRET NUCLEAR LAUNCH CODE: "1234"');
+    const output = intoStream(buffer1);
 
     const source = create_source({
       Stream: ReceiveStream,
