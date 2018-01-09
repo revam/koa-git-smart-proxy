@@ -1,7 +1,7 @@
 {
-  "name": "koa-git-proxy",
+  "name": "koa-git-smart-proxy",
   "version": "1.0.0",
-  "description": "A proxy library for custom git deploy logic for koa.",
+  "description": "A proxy library for custom git deploy logic made for koa.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
@@ -15,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/revam/koa-git-proxy.git"
+    "url": "git+https://github.com/revam/koa-git-smart-proxy.git"
   },
   "keywords": [
     "git",
@@ -30,9 +30,9 @@
   "author": "Mikal Stordal <mikalstordal@gmail.com> (https://github/revam)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/revam/koa-git-proxy/issues"
+    "url": "https://github.com/revam/koa-git-smart-proxy/issues"
   },
-  "homepage": "https://github.com/revam/koa-git-proxy#readme",
+  "homepage": "https://github.com/revam/koa-git-smart-proxy#readme",
   "devDependencies": {
     "@types/grunt": "^0.4.22",
     "@types/http-status": "^0.2.30",
