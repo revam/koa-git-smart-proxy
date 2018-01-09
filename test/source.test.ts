@@ -72,7 +72,7 @@ describe('GitStream', () => {
 });
 
 describe('UploadStream', () => {
-  it('should understand requests to upload-pack service', async(done) => {
+  it('should understand valid requests to git-upload-pack service', async(done) => {
     // Random
     const input = intoStream([
       '0032want 0a53e9ddeaddad63ad106860237bbf53411d11a7\n',
@@ -117,7 +117,7 @@ describe('ReceiveStream', () => {
     '\nPACK....',
   ];
 
-  it('should understand requests to receive-pack service', async(done) => {
+  it('should understand valid requests to git-receive-pack service', async(done) => {
     const input = intoStream(results) as Readable;
 
     const source = create_source({
