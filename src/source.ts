@@ -39,7 +39,7 @@ export interface GitCommandResult {
   input: Writable;
 }
 
-export type GitCommand = (commmand: string, repo_path: string, args: string[]) =>
+export type GitCommand = (repo_path: string, commmand: string, command_args: string[]) =>
   GitCommandResult | Promise<GitCommandResult>;
 
 export interface GitStreamOptions {
@@ -215,7 +215,7 @@ export class GitStream extends Duplex {
     }
 
     const source = this[SymbolSource];
-    const {output, input} = await this.__command(this.service, repository, args);
+    const {output, input} = await this.__command(repository, this.service, args);
 
     output.on('error', (err) => this.emit('error', err));
     input.on('error', (err) => this.emit('error', err));
