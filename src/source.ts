@@ -147,6 +147,7 @@ export class GitStream extends Duplex {
       };
 
       source.on('finish', flush);
+      this.on('finish', () => source.push(null));
 
       if (this.hasInfo) {
         this.push(headers[this.service]);
