@@ -283,7 +283,7 @@ export class GitSmartProxy {
 
         const child_process = spawn(runtime, [cmd, ...args, full_path]);
 
-        return {output: child_process.stdout, input: child_process.stdin};
+        return {stdout: child_process.stdout, stdin: child_process.stdin};
       };
     }
 
