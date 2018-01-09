@@ -3,15 +3,13 @@ import { spawn } from 'child_process';
 import { exists } from 'fs';
 import { IncomingHttpHeaders, OutgoingHttpHeaders } from 'http';
 import * as HttpCodes from 'http-status';
-import * as send from 'koa-send';
 import { resolve } from 'path';
-import * as through from 'through';
 import { promisify } from 'util';
 import { Context, Middleware } from 'koa'; // tslint:disable-line
 import { Readable, Writable } from 'stream';
 import { createGunzip } from 'zlib';
 // from library
-import { pkt_length } from './helpers';
+import { pkt_seperator } from './helpers';
 import { GitCommand, GitMetadata, GitStream, ReceiveStream, UploadStream } from './source';
 
 // See https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
@@ -93,29 +91,8 @@ export class GitSmartProxy {
         pipe.on('error', (err) => ctx.throw(err));
       }
 
-      // Split chunck at line-feed
-      pipe = pipe.pipe(through(function write(buffer: Buffer) {
-        let length = 0;
-        let offset = -1;
-        do {
-          offset = offset + length + 1;
-          length = pkt_length(buffer, offset);
-
-          if (length === 0) {
-            this.queue(offset, 4);
-            length = 4;
-          } else  if (length >= 3) {
-            this.queue(buffer.slice(offset, length));
-          } else {
-            this.queue(buffer.slice(offset));
-          }
-        } while (length !== -1);
-
-        // We still got some of the buffer left
-        if (offset < buffer.length) {
-          this.queue(buffer.slice(offset));
-        }
-      }));
+      // Split chunck into packets
+      pipe = pipe.pipe(pkt_seperator());
 
       pipe.on('error', (err) => ctx.throw(err));
       this[SymbolSource].on('error', (err) => ctx.throw(err));

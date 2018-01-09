@@ -1,7 +1,6 @@
 // from packages
 import * as encode from 'git-side-band-message';
 import { Duplex, Readable, Writable } from 'stream';
-import * as through from 'through';
 import { promisify } from 'util';
 // from library
 import { GitSmartProxy, ServiceType } from '.';
