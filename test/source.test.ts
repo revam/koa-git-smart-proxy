@@ -12,27 +12,18 @@ import { ReceiveStream, UploadStream } from '../src/source';
 
 interface CreateSourceOptions {
   input?: Writable;
-  output?: Readable | IterableIterator<string>;
+  output?: Readable;
   messages?: Iterable<string> | IterableIterator<string>;
   has_input: boolean;
   Stream: typeof UploadStream | typeof ReceiveStream;
 }
 
 function create_source({input, output, messages, has_input, Stream}: CreateSourceOptions) {
-  if (!(output instanceof Readable)) {
-    const opts = output && Symbol.iterator in output ? {
-      read(size) {
-        const {value, done} = (output as IterableIterator<string>).next();
-        if (!done) {
-          this.push(value);
-        }
-      },
-    } : undefined;
-
-    output = new Readable();
+  if (!(output && output.readable)) {
+    output = through();
   }
 
-  if (!(input instanceof Writable)) {
+  if (!(input && input.writable)) {
     input = through();
   }
 
