@@ -238,13 +238,11 @@ export class UploadStream extends GitStream {
     // Stack buffers till fully parsed
     this.__buffers.push(buffer);
 
+    // Buffer is pre-divided to correct length
     const length = pkt_length(buffer);
 
     // Parse till we reach specal signal (0000) or unrecognisable data.
-    if (length <= 0) {
-      this.__next = next;
-      this.emit('parsed');
-    } else {
+    if (length > 0) {
       const message = buffer.toString('utf8');
       const results = matches[this.service].exec(message);
 
@@ -259,6 +257,9 @@ export class UploadStream extends GitStream {
       }
 
       next();
+    } else {
+      this.__next = next;
+      this.emit('parsed');
     }
   }
 }
@@ -277,13 +278,11 @@ export class ReceiveStream extends GitStream {
     // Stack buffers till fully parsed
     this.__buffers.push(buffer);
 
+    // Buffer is pre-divided to correct length
     const length = pkt_length(buffer);
 
     // Parse till we reach specal signal (0000) or unrecognisable data.
-    if (length <= 0) {
-      this.__next = next;
-      this.emit('parsed');
-    } else {
+    if (length > 0) {
       const message = buffer.toString('utf8');
       const results = matches[this.service].exec(message);
 
@@ -297,6 +296,9 @@ export class ReceiveStream extends GitStream {
       }
 
       next();
+    } else {
+      this.__next = next;
+      this.emit('parsed');
     }
   }
 }
