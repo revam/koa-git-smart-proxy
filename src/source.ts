@@ -61,7 +61,7 @@ export class GitStream extends Duplex {
   private __command: GitCommand;
   private __ready: number | false = false;
   protected __next?: (err?: Error) => void;
-  protected __buffer?: Buffer;
+  protected __buffers?: Buffer[] = [];
 
   constructor(options: GitStreamOptions) {
     super();
@@ -94,16 +94,18 @@ export class GitStream extends Duplex {
       };
 
       source._read = (size) => {
-        const buffer = this.__buffer;
-        const next = this.__next;
+        if (this.__buffers) {
+          for (const buffer of this.__buffers) {
+            source.push(buffer);
+          }
 
-        if (buffer) {
-          delete this.__buffer;
-          source.push(buffer);
+          delete this.__buffers;
         }
 
+        const next = this.__next;
         if (next) {
           delete this.__next;
+
           next();
         }
       };
@@ -238,7 +240,7 @@ export class UploadStream extends GitStream {
     }
 
     // Stack buffers till fully parsed
-    this.__buffer = Buffer.concat([this.__buffer || Buffer.alloc(0), buffer]);
+    this.__buffers.push(buffer);
 
     const length = pkt_length(buffer);
 
@@ -281,7 +283,7 @@ export class ReceiveStream extends GitStream {
     }
 
     // Stack buffers till fully parsed
-    this.__buffer = Buffer.concat([this.__buffer || Buffer.alloc(0), buffer]);
+    this.__buffers.push(buffer);
 
     const length = pkt_length(buffer);
 
