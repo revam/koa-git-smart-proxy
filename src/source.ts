@@ -10,7 +10,7 @@ import { pkt_length } from './helpers';
 const zero_buffer = new Buffer('0000');
 
 const matches = {
-  'receive-pack': /^[0-9a-f]{4}([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/([^\/]+)\/(.*?))(?:\n?$|\u0000([^\n]*)\n?$)/,
+  'receive-pack': /^[0-9a-f]{4}([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/([^\/]+?)s?\/(.*?))(?:\u0000([^\n]*)?\n?$)/,
   'upload-pack':  /^[0-9a-f]{4}(want|have) ([0-9a-f]{40})\n?$/,
 };
 
@@ -288,16 +288,10 @@ export class ReceiveStream extends GitStream {
       const results = matches[this.service].exec(message);
 
       if (results) {
-        let type = results[4];
-
-        if (type.endsWith('s')) {
-          type = type.slice(0, -1);
-        }
-
         this.metadata.old_commit = results[1];
         this.metadata.new_commit = results[2];
         this.metadata.ref = results[3];
-        this.metadata.reftype = type;
+        this.metadata.reftype = results[4];
         this.metadata.refname = results[5];
         this.metadata.capabilities = results[6] ? results[6].trim().split(' ') : [];
       }
