@@ -144,36 +144,59 @@ describe('ReceiveStream', () => {
     ));
   });
 
+  const results = [
+    // tslint:disable-next-line
+    '00760a53e9ddeaddad63ad106860237bbf53411d11a7 441b40d833fdfa93eb2908e52742248faf0ee993 refs/heads/maint\0 report-status\n',
+    '0000',
+    '\nPACK....',
+  ];
+
   it('should understand requests to receive-pack service', async(done) => {
-    const results = [
-      // tslint:disable-next-line
-      '00760a53e9ddeaddad63ad106860237bbf53411d11a7 441b40d833fdfa93eb2908e52742248faf0ee993 refs/heads/maint\0 report-status\n',
-      '0000',
-      '\nPACK....',
-    ];
-
     const input = intoStream(results) as Readable;
-
-    const output = new Writable({
-      write(this: Writable, buffer: Buffer, encoding, next) {
-        expect(buffer.toString('utf8')).toBe(results.shift());
-      },
-      final() {
-        expect(source.metadata.ref).toBe('refs/heads/maint');
-        expect(source.metadata.refname).toBe('maint');
-        expect(source.metadata.reftype).toBe('head');
-        expect(source.metadata.old_commit).toBe('0a53e9ddeaddad63ad106860237bbf53411d11a7');
-        expect(source.metadata.new_commit).toBe('441b40d833fdfa93eb2908e52742248faf0ee993');
-        expect(source.metadata.capabilities).toMatchObject(['report-status']);
-
-        done();
-      },
-    });
 
     const source = create_source({
       Stream: ReceiveStream,
       has_input: true,
-      input: output,
+    });
+
+    input.pipe(source);
+
+    ok(source, 'should now have a source');
+
+    await source.wait();
+
+    expect(source.metadata.ref).toBe('refs/heads/maint');
+    expect(source.metadata.refname).toBe('maint');
+    expect(source.metadata.reftype).toBe('head');
+    expect(source.metadata.old_commit).toBe('0a53e9ddeaddad63ad106860237bbf53411d11a7');
+    expect(source.metadata.new_commit).toBe('441b40d833fdfa93eb2908e52742248faf0ee993');
+    expect(source.metadata.capabilities).toMatchObject(['report-status']);
+
+    done();
+  });
+
+  it('should pipe all data, both parsed and unparsed', async(done) => {
+    const input = intoStream(results) as Readable;
+
+    const buffers: Buffer[] = [];
+    const throughput = through(
+      function write(buffer: Buffer) {
+        buffers.push(buffer);
+      },
+      function finsih() {
+        const actual = Buffer.concat(buffers);
+        const expects = Buffer.from(results.join(''));
+
+        expect(actual.equals(expects)).toBeTruthy();
+
+        done();
+      },
+    );
+
+    const source = create_source({
+      Stream: ReceiveStream,
+      has_input: true,
+      input: throughput,
     });
 
     input.pipe(source);
