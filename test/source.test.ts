@@ -8,14 +8,14 @@ import { Readable, Writable } from 'stream';
 import * as through from 'through';
 // from libraries
 import { GitSmartProxy, ServiceType } from '../src';
-import { ReceiveStream, UploadStream } from '../src/source';
+import { GitStream, ReceiveStream, UploadStream } from '../src/source';
 
 interface CreateSourceOptions {
   input?: Writable;
   output?: Readable;
   messages?: Iterable<string> | IterableIterator<string>;
   has_input: boolean;
-  Stream: typeof UploadStream | typeof ReceiveStream;
+  Stream: typeof GitStream | typeof UploadStream | typeof ReceiveStream;
 }
 
 function create_source({input, output, messages, has_input, Stream}: CreateSourceOptions) {
@@ -41,16 +41,14 @@ function create_source({input, output, messages, has_input, Stream}: CreateSourc
   return source;
 }
 
-describe('UploadStream', () => {
+describe('GitStream', () => {
   it('should just pipe output when no input, but don\'t inspect it.', async(done) => {
-    let buffer2: Buffer;
     const buffers: Buffer[] = [];
-
     const buffer1 = Buffer.from('SUPER SECRET NUCLEAR LAUNCH CODE: "1234"');
     const output = intoStream(buffer1);
 
     const source = create_source({
-      Stream: UploadStream,
+      Stream: GitStream,
       has_input: false,
       output,
     });
@@ -61,11 +59,9 @@ describe('UploadStream', () => {
     source.pipe(through(
       function write(buffer) {
         buffers.push(buffer);
-        this.queue(buffer);
       },
       function end() {
-        buffer2 = Buffer.concat(buffers);
-        buffers.length = 0;
+        const buffer2 = Buffer.concat(buffers);
 
         expect(buffer2.equals(buffer1)).toBe(true);
 
@@ -73,7 +69,9 @@ describe('UploadStream', () => {
       },
     ));
   });
+});
 
+describe('UploadStream', () => {
   it('should understand requests to upload-pack service', async(done) => {
     // Random
     const input = intoStream([
@@ -112,38 +110,6 @@ describe('UploadStream', () => {
 });
 
 describe('ReceiveStream', () => {
-  it('should just pipe output when no input, but don\'t inspect it.', async(done) => {
-    let buffer2: Buffer;
-    const buffers: Buffer[] = [];
-
-    const buffer1 = Buffer.from('SUPER SECRET NUCLEAR LAUNCH CODE: "1234"');
-    const output = intoStream(buffer1);
-
-    const source = create_source({
-      Stream: ReceiveStream,
-      has_input: false,
-      output,
-    });
-
-    await source.wait();
-    await source.process('');
-
-    source.pipe(through(
-      function write(buffer) {
-        buffers.push(buffer);
-        this.queue(buffer);
-      },
-      function end() {
-        buffer2 = Buffer.concat(buffers);
-        buffers.length = 0;
-
-        expect(buffer2.equals(buffer1)).toBe(true);
-
-        done();
-      },
-    ));
-  });
-
   const results = [
     // tslint:disable-next-line
     '00760a53e9ddeaddad63ad106860237bbf53411d11a7 441b40d833fdfa93eb2908e52742248faf0ee993 refs/heads/maint\0 report-status\n',
