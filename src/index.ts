@@ -190,7 +190,7 @@ export class GitSmartProxy {
     ctx.body = reason;
   }
 
-  public append_message(...messages: Array<string | Buffer>) {
+  public verbose(...messages: Array<string | Buffer>) {
     this[SymbolSource].verbose(messages);
   }
 
