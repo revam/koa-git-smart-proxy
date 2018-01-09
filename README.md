@@ -1,11 +1,11 @@
-# koa-git-proxy
+# koa-git-smart-proxy
 
-A proxy library for custom git deploy logic for koa.
+A proxy library for custom git deploy logic made for koa.
 
 ## Install
 
 ```sh
-npm install --save koa-git-proxy
+npm install --save koa-git-smart-proxy
 ```
 
 ## Why
@@ -26,7 +26,7 @@ Basic usage example.
 
 const koa = require('koa');
 const HttpStatus = ('http-status');
-const { GitProxy, ServiceType } = require('koa-git-proxy');
+const { GitProxy, ServiceType } = require('koa-git-smart-proxy');
 
 // Root folder
 const root_folder = process.env.GIT_ROOT;
@@ -64,7 +64,7 @@ const koa = require('koa');
 const passport = require('koa-passport');
 const HttpStatus = ('http-status');
 const { match } = require('koa-match');
-const { GitProxy, ServiceType } = require('koa-git-proxy');
+const { GitProxy, ServiceType } = require('koa-git-smart-proxy');
 // import from library
 const middleware = require('./middleware');
 const Models = require('./models');
