@@ -69,6 +69,14 @@ describe('GitStream', () => {
       },
     ));
   });
+
+  it('should add verbose messages to output', async(done) => {
+    done();
+  });
+
+  it('should be possible to add verbose messages to all respones from git', async(done) => {
+    done();
+  });
 });
 
 describe('UploadStream', () => {
