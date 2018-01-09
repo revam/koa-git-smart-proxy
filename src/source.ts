@@ -119,7 +119,7 @@ export class GitStream extends Duplex {
           await promisify(verbose.end)();
 
           verbose._write = function _write(buf, enc, next) {
-              this.push(encode(buf));
+              this.push(buf);
               next();
           };
 
@@ -130,7 +130,7 @@ export class GitStream extends Duplex {
 
           if (buffer) {
             delete verbose.__buffer;
-            this.push(encode(buffer));
+            this.push(buffer);
           }
 
           if (resume) {
@@ -178,7 +178,7 @@ export class GitStream extends Duplex {
 
     if (verbose.writable) {
       for (const message of messages) {
-        verbose.write(message);
+        verbose.write(encode(message));
       }
     }
   }
