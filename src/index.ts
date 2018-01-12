@@ -9,7 +9,7 @@ import { Context, Middleware } from 'koa'; // tslint:disable-line
 import { Readable, Writable } from 'stream';
 import { createGunzip } from 'zlib';
 // from library
-import { pkt_seperator } from './helpers';
+import { seperate } from './helpers';
 import { GitCommand, GitMetadata, GitStream, ReceiveStream, UploadStream } from './source';
 
 // See https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
@@ -84,18 +84,17 @@ export class GitSmartProxy {
       pipe.on('error', (err) => context.throw(err));
 
       if ('gzip' === context.get('content-encoding')) {
-        pipe = pipe.pipe(createGunzip());
-
-        pipe.on('error', (err) => context.throw(err));
+        pipe = pipe.
+          pipe(createGunzip()).
+          on('error', (err) => context.throw(err));
       }
 
       // Split chunck into packets
-      pipe = pipe.pipe(pkt_seperator());
-
-      pipe.on('error', (err) => context.throw(err));
-      this[SymbolSource].on('error', (err) => context.throw(err));
-
-      pipe.pipe(this[SymbolSource]);
+      pipe = pipe.
+        pipe(seperate()).
+        on('error', (err) => context.throw(err)).
+        pipe(this[SymbolSource]).
+        on('error', (err) => context.throw(err));
     }
   }
 
