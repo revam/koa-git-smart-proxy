@@ -35,8 +35,9 @@ export interface GitMetadata {
 }
 
 export interface GitCommandResult {
-  stdout: Readable;
   stdin: Writable;
+  stdout: Readable;
+  stderr: Readable;
 }
 
 export type GitCommand = (repo_path: string, commmand: string, command_args: string[]) =>
@@ -221,6 +222,20 @@ export class GitStream extends Duplex {
     stdin.on('error', (err) => this.emit('error', err));
 
     stdout.pipe(source).pipe(stdin);
+  }
+
+  public exists(repository: string) {
+    return new Promise<boolean>(async(resolve) => {
+      let exists = true;
+
+      const {stdout} = await this.__command(repository, this.service, ['--advertise-refs']);
+
+      stdout.once('error', (err) => exists = false);
+      stdout.once('data', (chunk) =>
+        (exists && (exists = 'fatal' !== chunk.slice(0, 4).toString())));
+      stdout.once('end', () => resolve(exists));
+      stdout.resume();
+    });
   }
 }
 

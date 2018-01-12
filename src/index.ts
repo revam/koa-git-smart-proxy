@@ -25,7 +25,7 @@ export enum ServiceType {
   PUSH,
 }
 
-export enum AcceptStatus {
+export enum RequestStatus {
   PENDING,
   ACCEPTED,
   REJECTED,
@@ -41,17 +41,17 @@ const match_array = new Map<ServiceType, [string, RegExp]>([
 
 export class GitSmartProxy {
   public repository: string;
-  public readonly metadata: GitMetadata = {};
+  public metadata: GitMetadata;
 
   // @ts-ignore suppress error [1166]
   private [SymbolSource]?: GitStream;
   private __context: Context;
   private __service: ServiceType;
-  private __status: AcceptStatus = AcceptStatus.PENDING;
-  private readonly __content_type: string;
+  private __status: RequestStatus = RequestStatus.PENDING;
+  private __content_type: string;
 
-  constructor(options: GitProxyOptions) {
-    this.__context = options.context;
+  constructor(context: Context, command: GitCommand) {
+    this.__context = context;
 
     const {type = ServiceType.UNKNOWN, repository = '', service, content_type} = this.match();
 
@@ -68,34 +68,32 @@ export class GitSmartProxy {
     this[SymbolSource] = service === 'upload-pack'
     // Upload pack
     ? new UploadStream({
-        command: options.command,
+        command,
         has_info,
       })
     // Receive pack
     : new ReceiveStream({
-        command: options.command,
+        command,
         has_info,
       });
 
     // We have a request body to pipe
     if (!has_info) {
-      const ctx = this.__context;
+      let pipe: Readable = context.req;
 
-      let pipe: Readable = ctx.req;
+      pipe.on('error', (err) => context.throw(err));
 
-      pipe.on('error', (err) => ctx.throw(err));
-
-      if ('gzip' === ctx.get('content-encoding')) {
+      if ('gzip' === context.get('content-encoding')) {
         pipe = pipe.pipe(createGunzip());
 
-        pipe.on('error', (err) => ctx.throw(err));
+        pipe.on('error', (err) => context.throw(err));
       }
 
       // Split chunck into packets
       pipe = pipe.pipe(pkt_seperator());
 
-      pipe.on('error', (err) => ctx.throw(err));
-      this[SymbolSource].on('error', (err) => ctx.throw(err));
+      pipe.on('error', (err) => context.throw(err));
+      this[SymbolSource].on('error', (err) => context.throw(err));
 
       pipe.pipe(this[SymbolSource]);
     }
@@ -109,24 +107,14 @@ export class GitSmartProxy {
     return this.__status;
   }
 
-  public async wait() {
-    const source = this[SymbolSource];
-
-    // Wait for source
-    await source.wait();
-
-    // Fill metadata
-    Object.assign(this.metadata, source.metadata);
-  }
-
   public async accept(): Promise<void>;
   public async accept(repo_path: string): Promise<void>;
   public async accept(repo_path?: string) {
-    if (this.status !== AcceptStatus.PENDING) {
+    if (this.status !== RequestStatus.PENDING) {
       return;
     }
 
-    this.__status = AcceptStatus.ACCEPTED;
+    this.__status = RequestStatus.ACCEPTED;
 
     // Abort on unkown type
     if (this.service === ServiceType.UNKNOWN) {
@@ -153,11 +141,11 @@ export class GitSmartProxy {
   public async reject(reason: string, status?: number): Promise<void>;
   public async reject(status: number, reason?: string): Promise<void>;
   public async reject(ar1?, ar2?): Promise<void> {
-    if (this.status !== AcceptStatus.PENDING) {
+    if (this.status !== RequestStatus.PENDING) {
       return;
     }
 
-    this.__status = AcceptStatus.REJECTED;
+    this.__status = RequestStatus.REJECTED;
 
     let reason: string;
     let status: number;
@@ -246,8 +234,18 @@ export class GitSmartProxy {
     this.__context.set('Cache-Control', 'no-cache, max-age=0, must-revalidate');
   }
 
-  public static async create(options: GitProxyOptions) {
-    const service = new GitSmartProxy(options);
+  private async wait() {
+    const source = this[SymbolSource];
+
+    // Wait for source
+    await source.wait();
+
+    // Set metadata
+    this.metadata = source.metadata;
+  }
+
+  public static async create(context: Context, command: GitCommand) {
+    const service = new GitSmartProxy(context, command);
 
     // Wait till ready
     if (service.service !== ServiceType.UNKNOWN) {
@@ -281,23 +279,18 @@ export class GitSmartProxy {
       command = (repo_path, cmd, args) => {
         const full_path = resolve(root_folder, repo_path);
 
-        const child_process = spawn(runtime, [cmd, ...args, full_path]);
-
-        return {stdout: child_process.stdout, stdin: child_process.stdin};
+        return spawn(runtime, [cmd, ...args, full_path]);
       };
     }
 
     return async(context, next) => {
       // Add proxy to context
-      const proxy = context.state[key_name] = await GitSmartProxy.create({
-        command,
-        context,
-      });
+      const proxy = context.state[key_name] = await GitSmartProxy.create(context, command);
 
       await next();
 
       // If auto_deploy defined is and status is still pending -> deploy
-      if (undefined !== auto_deploy && proxy.status === AcceptStatus.PENDING) {
+      if (undefined !== auto_deploy && proxy.status === RequestStatus.PENDING) {
         // No repository -> Repository not found
         if (!proxy.repository) {
           return proxy.reject(HttpCodes.NOT_FOUND);
