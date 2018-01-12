@@ -2,7 +2,6 @@
 
 // from packages
 import { ok } from 'assert';
-import { createReadStream, readFileSync } from 'fs';
 import * as intoStream from 'into-stream';
 import { Readable, Writable } from 'stream';
 import * as through from 'through';

@@ -34,11 +34,9 @@
   },
   "homepage": "https://github.com/revam/koa-git-smart-proxy#readme",
   "devDependencies": {
-    "@types/grunt": "^0.4.22",
     "@types/http-status": "^0.2.30",
     "@types/jest": "^22.0.0",
     "@types/koa": "^2.0.43",
-    "@types/koa-send": "^4.1.1",
     "@types/node": "^8.5.2",
     "@types/through": "0.0.29",
     "del-cli": "^1.1.0",
