@@ -65,7 +65,7 @@ app.use(ctx => {
 
 ### Auto-deployment
 
-Auto deployment accepts or rejects a request if no action is taken further down the middleware chain. The options is **off by default**.
+Auto deployment accepts or rejects a request if no action is taken further down the middleware chain. The option is **off by default**.
 
 Set the `auto_deploy` option to `true` to accept, or `false` to reject not handled requests. It also has a default reject logic independent of the flag value, and works simular to the below code.
 
@@ -204,6 +204,389 @@ app.use(middleware({
 }));
 ```
 
+## API
+
+### **middleware(** [options] **)** (function) (export)
+
+*Note:* You can also use the exported `GitSmartProxy.middleware` static class method.
+
+Creates a middleware attaching a new instance to context.
+
+#### Parameters
+
+- `options`
+  \<[MiddlewareOptions](#MiddlewareOptions)>
+  Middleware options.
+
+#### Returns
+
+- \<[Function](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)>
+  A koa middleware function.
+
+### **GitSmartProxy** (class) (export)
+
+*Note:* It is adviced against using the `new` keyword when creating new instances.
+Instead use [create](#GitSmartProxy.create).
+
+#### Constructor parameters
+
+- `context`
+  \<[koa.Context](#Context)>
+  Koa context.
+
+- `command`
+  \<[GitCommand](#GitCommand)>
+  Git RPC handler.
+
+#### Public properties
+
+- `service`
+  \<[ServiceType](#ServiceType)>
+  Service type.
+  Read-only.
+
+- `status`
+  \<[RequestStatus](#RequestStatus)>
+  Request status.
+  Read-only.
+
+- `metadata`
+  \<[GitMetadata](#GitMetadata)>
+  Request metadata.
+
+- `repository`
+  \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  Repoistory name/path.
+
+#### Public static methods
+
+- `create`
+
+- `middleware`
+
+#### Public instance methods
+
+- `accept`
+
+- `reject`
+
+- `exists`
+
+- `verbose`
+
+### **GitSmartProxy.create(** context, command **)** (static method)
+
+Create a new GitSmartProxy instance, and wait till it's ready.
+Return a promise for the instance.
+
+#### Parameters
+
+- `context`
+  \<[koa.Context](#Context)>
+  Koa context.
+
+- `command`
+  \<[GitCommand](#GitCommand)>
+  Git RPC handler.
+
+#### Returns
+
+- \<[Promise](#GitSmartProxy)>
+  A promise that resolves to a new instance of [`GitSmartProxy`](#GitSmartProxy).
+
+#### Usage example
+
+Bare usage.
+
+```js
+const koa =  require('koa');
+const { spawn } = require('child_process');
+const { exsist } = require('fs');
+const { createServer } = require('http');
+const { GitSmartProxy } = require('koa-git-smart-proxy');
+const { resolve } = require('path');
+const { promiseify } = require('util');
+
+const command = (r, c, ar) => spawn('git', [c, ...ar, resolve(r)]);
+
+const app = new koa;
+
+app.use(async(ctx) => {
+  const service = await GitSmartProxy.create(context, command);
+
+  // Not found
+  if ( ! (
+    service.repository &&
+    await promiseify(exsists)(resolve(service.repository))
+  ) ) {
+    return service.reject(404);
+  }
+
+  // Forbidden
+  if (service.service !== ServiceType.UNKNOWN) {
+    return service.reject();
+  }
+
+  return service.accept();
+});
+
+const server = createServer(app.callback());
+
+server.listen(3000, () => console.log('listening on port 3000'));
+```
+
+### **GitSmartProxy.middleware(** [options] **)** (static method)
+
+*Note:* You can also use the exported `middleware` function.
+
+Creates a middleware attaching a new instance to context.
+
+#### Parameters
+
+- `options`
+  \<[MiddlewareOptions](#MiddlewareOptions)>
+  Middleware options.
+
+#### Returns
+
+- \<[Function](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)>
+  A koa middleware function.
+
+#### See also
+
+- [Usage](#Usage)
+
+- [GitSmartProxy.create](#GitSmartProxy.create)
+
+#### Usage examples
+
+Bare usage.
+
+```js
+const koa =  require('koa');
+const { spawn } = require('child_process');
+const { exsist } = require('fs');
+const { createServer } = require('http');
+const { middleware } = require('koa-git-smart-proxy');
+const { resolve } = require('path');
+const { promiseify } = require('util');
+
+const command = (r, c, ar) => spawn('git', [c, ...ar, resolve(r)]);
+
+const app = new koa;
+
+app.use(middleware({auto_deploy: true}));
+
+app.use(async(ctx) => {
+  const {proxy} = ctx.state;
+
+  // Not found on disc
+  if ( ! (
+    proxy.repository &&
+    await proxy.exists();
+  ) ) {
+    proxy.repository = '';
+  }
+});
+
+const server = createServer(app.callback());
+
+server.listen(3000, () => console.log('listening on port 3000'));
+```
+
+### **GitSmartProxy#accept(** [alternative_path] **)** (instance method)
+
+Accept the request for provided service.
+
+#### Parameters
+
+- `alternative_path`
+  \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  Alternative path where repository is stored.
+
+#### Returns
+
+- \<[Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)>
+  An empty promise that resolves when processing is done.
+
+### **GitSmartProxy#reject()** (instance method)
+
+Reject request to service. Can be optionally supplied with a status code and/or reason.
+
+#### Returns
+
+- \<[Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)>
+  An empty promise that resolves when processing is done.
+
+### **GitSmartProxy#reject(** [status,] [reason] **)** (instance method)
+
+Reject request to service. Supplied with a status code and an optional reason.
+
+#### Parameters
+
+- `status`
+  \<[Number](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number)>
+  HTTP Status code to set for response.
+
+- `reason`
+  \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  Rejection reason.
+  Defaults to text for status code.
+
+#### Returns
+
+- \<[Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)>
+  An empty promise that resolves when processing is done.
+
+### **GitSmartProxy#reject(** reason, [status] **)** (instance method)
+
+Reject request to service. Supplied with a reason and an optional status code.
+
+#### Parameters
+
+- `reason`
+  \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  Rejection reason.
+  Defaults to text for status code.
+
+- `status`
+  \<[Number](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number)>
+  HTTP Status code to set for response.
+
+#### Returns
+
+- \<[Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)>
+  An empty promise that resolves when processing is done.
+
+### **GitSmartProxy#exists()** (instance method)
+
+Checks if repository exists.
+
+#### Returns
+
+- \<[Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)>
+  A promise that resolves to a boolean for whether or not repository exists.
+
+### **GitSmartProxy#verbose(** ...messages **)** (instance method)
+
+Side-loades verbose messages to client.
+
+#### Parameters
+
+- `messages`
+  \<[Array\<String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)>
+  \<[Iterable\<String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols)> |
+  \<[IterableIterator\<String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols)>
+  Messages to side-load.
+
+### **ServiceType** (enum) (export)
+
+Service types with values.
+
+#### Values
+
+- `UNKNOWN` (0)
+  Unknown service.
+
+- `INFO` (1)
+  Advertise refs.
+
+- `PULL` (2)
+  All forms of data fetch.
+
+- `PUSH` (3)
+  All forms of data push.
+  (Including setting tags)
+
+### **RequestStatus** (enum) (export)
+
+Request stauts with values.
+
+#### Values
+
+- `PENDING` (0)
+  Request is still pending.
+
+- `ACCEPTED` (1)
+  Request was accepted.
+
+- `REJECTED` (2)
+  Request was rejected.
+
+### **MiddlewareOptions** (interface) (typescript only export)
+
+Middleware options.
+
+#### Properties
+
+- `git`
+  \<[string](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)> |
+  \<[GitExecutableOptions](#GitExecutableOptions)> |
+  \<[GitCommand](#GitCommand)>
+  Can either be a string to the local root folder, a custom handler or an options object.
+  Defaults to `process.cwd()`.
+
+- `auto_deploy`
+  \<[Boolean](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean)>
+  Auto deployment accepts or rejects a request if no action is taken further down the middleware chain.
+  No default.
+
+- `key_name`
+  \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  Where to store instance in `Context.state`.
+  Defaults to `'proxy'`.
+
+### **GitCommand()** (interface) (typescript only export)
+
+A function returning stdin/stdout of a spawned git process.
+
+#### Parameters
+
+- `repository`
+
+- `command`
+
+- `command_args`
+
+#### Returns
+
+- \<[GitCommandResult](#GitCommandResult)>
+  An object containing stdin/stdout.
+
+### **GitCommandResult** (interface) (typescript only export)
+
+An object containing stdin/stdout of a git process.
+
+#### Properties
+
+- `stdin`
+  \<[Writable](https://nodejs.org/dist/latest/docs/api/stream.html#stream_class_stream_writable)>
+  Process standard input.
+
+- `stdout`
+  \<[Readable](https://nodejs.org/dist/latest/docs/api/stream.html#stream_class_stream_readable)>
+  Process standard output.
+
+- `stderr`
+  \<[Readable](https://nodejs.org/dist/latest/docs/api/stream.html#stream_class_stream_readable)>
+  Process error output.
+
+### **GitExecutableOptions** (interface) (typescript only export)
+
+Options for customizing the default [GitCommand](#GitCommand).
+
+#### Properties
+
+- `executable_path`
+  \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  A path to the git executable.
+  Defaults to `'git'`.
+
+- `root_folder`
+  \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  A path leading to the projects root folder. Will be resolved.
+  Defaults to `process.cwd()`.
+
 ## Typescript
 
 This module includes a [TypeScript](https://www.typescriptlang.org/)
@@ -216,4 +599,4 @@ npm install --save-dev @types/node
 ```
 
 ## License
-Licensed under the MIT License, see [LICENSE](./LICENSE).
+MIT
