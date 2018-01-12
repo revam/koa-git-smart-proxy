@@ -3,9 +3,10 @@
     "src/**/*.ts"
   ],
   "compilerOptions": {
-    "outDir": "./",
+    "outDir": "./lib",
     "target": "es2017",
     "module": "commonjs",
+    "moduleResolution": "node",
     "declaration": true,
     "sourceMap": true,
     "lib": [
@@ -15,7 +16,5 @@
       "esnext"
     ]
   },
-  "exclude": [
-
-  ]
+  "exclude": []
 }
