@@ -39,7 +39,7 @@ export interface GitCommandResult {
   stderr: Readable;
 }
 
-export type GitCommand = (repo_path: string, commmand: string, command_args: string[]) =>
+export type GitCommand = (repository: string, commmand: string, args?: string[]) =>
   GitCommandResult | Promise<GitCommandResult>;
 
 export interface GitStreamOptions {

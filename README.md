@@ -325,7 +325,7 @@ const { GitSmartProxy, ServiceType } = require('koa-git-smart-proxy');
 const { resolve } = require('path');
 const { promisify } = require('util');
 
-const command = (r, c, ar) => spawn('git', [c, ...ar, resolve(r)], {cwd: resolve(r)});
+const command = (r, c, ar = []) => spawn('git', [c, ...ar, resolve(r)], {cwd: resolve(r)});
 
 const app = new koa;
 

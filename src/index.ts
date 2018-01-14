@@ -294,7 +294,7 @@ export class GitSmartProxy {
         root_folder = process.cwd();
       }
 
-      command = (repo_path, cmd, args) => {
+      command = (repo_path, cmd, args = []) => {
         const full_path = resolve(root_folder, repo_path);
 
         return spawn(runtime, [cmd, ...args, full_path], {
