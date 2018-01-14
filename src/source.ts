@@ -2,8 +2,6 @@
 import * as encode from 'git-side-band-message';
 import { Duplex, Readable, Transform, Writable } from 'stream';
 import { promisify } from 'util';
-// from library
-import { GitSmartProxy, ServiceType } from '.';
 
 const zero_buffer = new Buffer('0000');
 
