@@ -9,14 +9,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - Added missing usage example for `middlware( [options] )`.
+- Missing instance method `GitSmartProxy#exists(
+  [alternative_path] )`.
 
 ### Changed
 
 - Changed ref metadata. (Combined all into one.)
 - Set cwd before executing commands (in default handler).
-- Tweaked middleware.
-- Typos in some comments.
-- Moved used function from 'src/helper.ts' to 'src/source.ts'.
+- Internal class naming. (in src/source.ts)
+- Tweaked middleware and comments.
 
 ### Fixed
 
@@ -25,7 +26,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Removed
 
-- Unused code in middleware example.
+- Removed unused code in middleware example.
 - Removed unused helper functions.
 
 ## 0.0.1 - 2018-01-12
