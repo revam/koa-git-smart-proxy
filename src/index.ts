@@ -52,7 +52,7 @@ export class GitSmartProxy {
   constructor(context: Context, command: GitCommand) {
     this.__context = context;
 
-    const {type = ServiceType.UNKNOWN, repository = '', service, content_type} = this.match();
+    const {type, repository, service, content_type} = this.match();
 
     this.repository = repository;
     this.__service = type;
@@ -194,7 +194,7 @@ export class GitSmartProxy {
 
         // Invlaid method
         if (method !== ctx.method) {
-          return;
+          break;
         }
 
         const service = get_service(isInfo
@@ -204,12 +204,12 @@ export class GitSmartProxy {
 
         // Invalid service
         if (!service) {
-          return;
+          break;
         }
 
         // Invalid post request
         if (!isInfo && ctx.get('content-type') !== `application/x-git-${service}-request`) {
-          return;
+          break;
         }
 
         if (isInfo) {
@@ -224,6 +224,8 @@ export class GitSmartProxy {
         };
       }
     }
+
+    return {type: ServiceType.UNKNOWN};
   }
 
   private set_cache_options() {
@@ -358,8 +360,8 @@ function get_service(input: string): 'receive-pack' | 'upload-pack' {
 }
 
 interface MatchResult {
-  content_type: string;
-  repository: string;
-  service: 'upload-pack' | 'receive-pack';
+  content_type?: string;
+  repository?: string;
+  service?: 'upload-pack' | 'receive-pack';
   type: ServiceType;
 }

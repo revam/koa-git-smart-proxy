@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- Error matching non-route. (returned undefined)
 - Usage examples for both static methods.
 
 ### Removed
