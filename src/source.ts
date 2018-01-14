@@ -3,7 +3,8 @@ import * as encode from 'git-side-band-message';
 import { Duplex, Readable, Transform, Writable } from 'stream';
 import { promisify } from 'util';
 
-const zero_buffer = new Buffer('0000');
+const zero_buffer = Buffer.from('0000');
+const empty_repo_error = Buffer.from('have any commits yet\n');
 
 const matches = {
   'receive-pack': /^[0-9a-f]{4}([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/([^\/]+)\/(.*?))(?:\u0000([^\n]*)?\n?$)/,
@@ -225,13 +226,14 @@ export class GitBasePack extends Duplex {
     return new Promise<boolean>(async(resolve) => {
       let exists = true;
 
-      const {stdout} = await this.__command(repository, this.service, ['--advertise-refs']);
+      const {stderr} = await this.__command(repository, 'log', ['-0']);
 
-      stdout.once('error', (err) => exists = false);
-      stdout.once('data', (chunk) =>
-        (exists && (exists = 'fatal' !== chunk.slice(0, 4).toString())));
-      stdout.once('end', () => resolve(exists));
-      stdout.resume();
+      // If we got an error, ckech tailing
+      // bytes if the cause is an empty repo.
+      stderr.once('data', (chunk: Buffer) => {
+        exists = !(chunk.length >= 21 && !chunk.slice(-21).equals(empty_repo_error));
+      });
+      stderr.once('end', () => resolve(exists));
     });
   }
 }
