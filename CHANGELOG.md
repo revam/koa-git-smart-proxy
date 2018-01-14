@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 
+- Changed ref metadata. (Combined all into one.)
 - Set cwd before executing commands (in default handler).
 - Tweaked middleware.
 - Typos in some comments.

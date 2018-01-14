@@ -8,7 +8,7 @@ import { GitSmartProxy, ServiceType } from '.';
 const zero_buffer = new Buffer('0000');
 
 const matches = {
-  'receive-pack': /^[0-9a-f]{4}([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/([^\/]+?)s?\/(.*?))(?:\u0000([^\n]*)?\n?$)/,
+  'receive-pack': /^[0-9a-f]{4}([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/([^\/]+)\/(.*?))(?:\u0000([^\n]*)?\n?$)/,
   'upload-pack':  /^[0-9a-f]{4}(want|have) ([0-9a-f]{40})\n?$/,
 };
 
@@ -25,9 +25,11 @@ export const SymbolVerbose = Symbol('verbose stream');
 export interface GitMetadata {
   want?: string[];
   have?: string[];
-  reftype?: string;
-  refname?: string;
-  ref?: string;
+  ref?: {
+    name: string;
+    path: string;
+    type: string;
+  };
   old_commit?: string;
   new_commit?: string;
   capabilities?: string[];
@@ -303,9 +305,11 @@ export class ReceiveStream extends GitStream {
       if (results) {
         this.metadata.old_commit = results[1];
         this.metadata.new_commit = results[2];
-        this.metadata.ref = results[3];
-        this.metadata.reftype = results[4];
-        this.metadata.refname = results[5];
+        this.metadata.ref = {
+          name: results[5],
+          path: results[3],
+          type: results[4],
+        };
         this.metadata.capabilities = results[6] ? results[6].trim().split(' ') : [];
       }
 
