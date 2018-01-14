@@ -1,10 +1,9 @@
 // from packages
 import * as encode from 'git-side-band-message';
-import { Duplex, Readable, Writable } from 'stream';
+import { Duplex, Readable, Transform, Writable } from 'stream';
 import { promisify } from 'util';
 // from library
 import { GitSmartProxy, ServiceType } from '.';
-import { pkt_length } from './helpers';
 
 const zero_buffer = new Buffer('0000');
 
@@ -315,6 +314,65 @@ export class ReceiveStream extends GitStream {
       this.__next = next;
       this.emit('parsed');
     }
+  }
+}
+
+export class Seperator extends Transform {
+  private underflow?: Buffer;
+
+  public async _transform(buffer: Buffer, encoding, next) {
+    // Start where previous stopped
+    if (this.underflow) {
+      buffer = Buffer.concat([this.underflow, buffer]);
+      this.underflow = undefined;
+    }
+
+    let length = 0;
+    let offset = -1;
+    do {
+      offset = offset + length + 1;
+      length = pkt_length(buffer, offset);
+
+      // Break if no length found on first iteration
+      if (offset === 0 && length === -1) {
+        break;
+      }
+
+      // Special signal (0000) is 4 char long
+      if (length === 0) {
+        length = 4;
+      }
+
+      // We got data underflow (assume one more buffer)
+      if (offset + length > buffer.length) {
+        this.underflow = buffer.slice(offset);
+        break;
+      }
+
+      if (length >= 4) {
+        this.push(buffer.slice(offset, length));
+      } else {
+        this.push(buffer.slice(offset));
+      }
+
+      // Wait till next tick so we can do other stuff inbetween.
+      await new Promise<void>((resolve) => process.nextTick(resolve));
+    } while (length !== -1);
+
+    // We got a data overflow, so append extra data
+    if (!this.underflow && offset < buffer.length) {
+      this.push(buffer.slice(offset));
+    }
+
+    next();
+  }
+}
+
+function pkt_length(buffer: Buffer, offset: number = 0) {
+  try {
+    return Number.parseInt(buffer.slice(offset, 4).toString('utf8'), 16);
+  } catch (err) {
+    return -1;
   }
 }
 

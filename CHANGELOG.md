@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- Moved used function from 'src/helper.ts' to 'src/source.ts'.
+
+### Removed
+
+- Removed unused helper functions.
+
 ## 0.0.1 - 2018-01-12
 
 ### Added
