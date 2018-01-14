@@ -39,7 +39,7 @@ const match_array = new Map<ServiceType, [string, RegExp]>([
 ]);
 
 export class GitSmartProxy {
-  public repository: string;
+  public repository?: string;
   public metadata: GitMetadata;
 
   // @ts-ignore suppress error [1166]
@@ -106,7 +106,7 @@ export class GitSmartProxy {
   }
 
   public async accept(): Promise<void>;
-  public async accept(repo_path: string): Promise<void>;
+  public async accept(alternative_path: string): Promise<void>;
   public async accept(repo_path?: string) {
     if (this.status !== RequestStatus.PENDING) {
       return;
@@ -120,6 +120,10 @@ export class GitSmartProxy {
     }
 
     if (!repo_path) {
+      if (!this.repository) {
+        return;
+      }
+
       repo_path = this.repository;
     }
 
@@ -174,6 +178,20 @@ export class GitSmartProxy {
     ctx.type = 'text/plain';
     ctx.status = status;
     ctx.body = reason;
+  }
+
+  public async exists(): Promise<boolean>;
+  public async exists(alternative_path: string): Promise<boolean>;
+  public async exists(repo_path?: string): Promise<boolean> {
+    if (!repo_path) {
+      if (!this.repository) {
+        return false;
+      }
+
+      repo_path = this.repository;
+    }
+
+    return this[SymbolSource].exists(repo_path);
   }
 
   public verbose(...messages: Array<string | Buffer>) {
