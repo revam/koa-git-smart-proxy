@@ -279,7 +279,9 @@ export class GitSmartProxy {
       command = (repo_path, cmd, args) => {
         const full_path = resolve(root_folder, repo_path);
 
-        return spawn(runtime, [cmd, ...args, full_path]);
+        return spawn(runtime, [cmd, ...args, full_path], {
+          cwd: full_path,
+        });
       };
     }
 

@@ -6,8 +6,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Added missing usage example for `middlware( [options] )`.
+
 ### Changed
 
+- Set cwd before executing commands (in default handler).
 - Tweaked middleware.
 - Typos in some comments.
 - Moved used function from 'src/helper.ts' to 'src/source.ts'.
@@ -19,6 +24,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Removed
 
+- Unused code in middleware example.
 - Removed unused helper functions.
 
 ## 0.0.1 - 2018-01-12
