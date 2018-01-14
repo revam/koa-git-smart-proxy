@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Moved used function from 'src/helper.ts' to 'src/source.ts'.
 
+### Fixed
+
+- Usage examples for both static methods.
+
 ### Removed
 
 - Removed unused helper functions.
