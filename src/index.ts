@@ -62,22 +62,22 @@ export class GitSmartProxy {
       return this;
     }
 
-    const has_info = this.service === ServiceType.INFO;
+    const has_input = this.service !== ServiceType.INFO;
 
     this[SymbolSource] = service === 'upload-pack'
     // Upload pack
     ? new UploadStream({
         command,
-        has_info,
+        has_input,
       })
     // Receive pack
     : new ReceiveStream({
         command,
-        has_info,
+        has_input,
       });
 
     // We have a request body to pipe
-    if (!has_info) {
+    if (has_input) {
       let pipe: Readable = context.req;
 
       pipe.on('error', (err) => context.throw(err));

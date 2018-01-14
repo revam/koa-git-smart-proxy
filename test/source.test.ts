@@ -29,7 +29,7 @@ function create_source({input, output, messages, has_input, Stream}: CreateSourc
   // @ts-ignore
   const source = new Stream({
     command: (c, r, a) => ({stdout: output, stdin: input}),
-    has_info: !has_input,
+    has_input,
   });
 
   // Append verbose messages

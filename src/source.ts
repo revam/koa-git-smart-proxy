@@ -45,14 +45,13 @@ export type GitCommand = (repo_path: string, commmand: string, command_args: str
   GitCommandResult | Promise<GitCommandResult>;
 
 export interface GitStreamOptions {
-  has_info: boolean;
+  has_input: boolean;
   command: GitCommand;
 }
 
 export class GitStream extends Duplex {
   public readonly metadata: GitMetadata = {};
   public readonly service: 'upload-pack' | 'receive-pack';
-  public readonly hasInfo: boolean;
 
   // @ts-ignore suppress error [1166]
   private [SymbolSource]: SourceDuplex;
@@ -67,7 +66,6 @@ export class GitStream extends Duplex {
   constructor(options: GitStreamOptions) {
     super();
 
-    this.hasInfo = options.has_info;
     this.__command = options.command;
 
     this.once('parsed', () => {
@@ -150,7 +148,7 @@ export class GitStream extends Duplex {
       source.on('finish', flush);
       this.on('finish', () => source.push(null));
 
-      if (this.hasInfo) {
+      if (!options.has_input) {
         this.push(headers[this.service]);
       }
 
@@ -159,7 +157,7 @@ export class GitStream extends Duplex {
       }
     });
 
-    if (this.hasInfo) {
+    if (!options.has_input) {
       this.writable = false;
       this.emit('parsed');
     }
@@ -212,7 +210,7 @@ export class GitStream extends Duplex {
   public async process(repository: string) {
     const args = ['--stateless-rpc'];
 
-    if (this.hasInfo) {
+    if (!this.writable) {
       args.push('--advertise-refs');
     }
 
