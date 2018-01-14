@@ -7,7 +7,7 @@ import { Readable, Writable } from 'stream';
 import * as through from 'through';
 // from libraries
 import { GitSmartProxy, ServiceType } from '../src';
-import { GitBasePack, ReceivePack, UploadPack } from '../src/source';
+import { GitBasePack, Headers, ReceivePack, UploadPack } from '../src/source';
 
 interface CreateSourceOptions {
   input?: Writable;
@@ -41,32 +41,36 @@ function create_source({input, output, messages, has_input, Pack}: CreateSourceO
 }
 
 describe('GitStream', () => {
-  it('should just pipe output when no input, but don\'t inspect it.', async(done) => {
-    const buffers: Buffer[] = [];
-    const buffer1 = Buffer.from('SUPER SECRET NUCLEAR LAUNCH CODE: "1234"');
-    const output = intoStream(buffer1);
+  it('should advertise when no input', async(done) => {
+    const test_buffer = Buffer.from('test buffer');
 
-    const source = create_source({
-      Stream: GitStream,
-      has_input: false,
-      output,
-    });
+    // Test all services
+    for (const service of Reflect.ownKeys(Headers)) {
+      const results = [
+        Headers[service],
+        test_buffer,
+      ];
+      const output = intoStream(test_buffer);
 
-    await source.wait();
-    await source.process('');
+      const source = create_source({
+        Pack: GitBasePack,
+        has_input: false,
+        output,
+      });
+      source.service = service;
 
-    source.pipe(through(
-      function write(buffer) {
-        buffers.push(buffer);
-      },
-      function end() {
-        const buffer2 = Buffer.concat(buffers);
+      await source.wait();
+      await source.process('');
 
-        expect(buffer2.equals(buffer1)).toBe(true);
+      await new Promise((resolve) => {
+        source.pipe(through(
+          (b) => ok(results.shift().equals(b), 'should be equal'),
+          resolve,
+        ));
+      });
+    }
 
-        done();
-      },
-    ));
+    done();
   });
 
   it('should add verbose messages to output', async(done) => {
@@ -138,9 +142,9 @@ describe('ReceiveStream', () => {
 
     await source.wait();
 
-    expect(source.metadata.ref).toBe('refs/heads/maint');
-    expect(source.metadata.refname).toBe('maint');
-    expect(source.metadata.reftype).toBe('head');
+    expect(source.metadata.ref.path).toBe('refs/heads/maint');
+    expect(source.metadata.ref.name).toBe('maint');
+    expect(source.metadata.ref.type).toBe('heads');
     expect(source.metadata.old_commit).toBe('0a53e9ddeaddad63ad106860237bbf53411d11a7');
     expect(source.metadata.new_commit).toBe('441b40d833fdfa93eb2908e52742248faf0ee993');
     expect(source.metadata.capabilities).toMatchObject(['report-status']);
@@ -151,19 +155,10 @@ describe('ReceiveStream', () => {
   it('should pipe all data, both parsed and unparsed', async(done) => {
     const input = intoStream(results) as Readable;
 
-    const buffers: Buffer[] = [];
+    const r = results.map((s) => Buffer.from(s));
     const throughput = through(
-      function write(buffer: Buffer) {
-        buffers.push(buffer);
-      },
-      function finsih() {
-        const actual = Buffer.concat(buffers);
-        const expects = Buffer.from(results.join(''));
-
-        expect(actual.equals(expects)).toBeTruthy();
-
-        done();
-      },
+      (b) => ok(r.shift().equals(b), 'should be equal'),
+      done,
     );
 
     const source = create_source({

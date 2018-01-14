@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Error matching non-route. (returned undefined)
 - Usage examples for both static methods.
+- Incorrect test (should just pipe output when no input, but don't inspect it.) for GitStream.
 
 ### Removed
 
