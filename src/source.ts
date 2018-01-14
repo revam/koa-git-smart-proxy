@@ -157,7 +157,7 @@ export class GitBasePack extends Duplex {
 
     if (!options.has_input) {
       this.writable = false;
-      this.emit('parsed');
+      setImmediate(() => this.emit('parsed'));
     }
   }
 
