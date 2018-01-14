@@ -11,7 +11,7 @@ const matches = {
 };
 
 // Hardcoded headers
-const headers = {
+export const Headers = {
   'receive-pack': Buffer.from('001f# service=git-receive-pack\n0000'),
   'upload-pack': Buffer.from('001e# service=git-upload-pack\n0000'),
 };
@@ -47,7 +47,7 @@ export interface GitStreamOptions {
   command: GitCommand;
 }
 
-export class GitStream extends Duplex {
+export class GitBasePack extends Duplex {
   public readonly metadata: GitMetadata = {};
   public readonly service: 'upload-pack' | 'receive-pack';
 
@@ -147,7 +147,7 @@ export class GitStream extends Duplex {
       this.on('finish', () => source.push(null));
 
       if (!options.has_input) {
-        this.push(headers[this.service]);
+        this.push(Headers[this.service]);
       }
 
       if (this.__ready) {
@@ -236,7 +236,7 @@ export class GitStream extends Duplex {
   }
 }
 
-export class UploadStream extends GitStream {
+export class UploadPack extends GitBasePack {
   public readonly service = 'upload-pack';
 
   public async _write(buffer, enc, next) {
@@ -276,7 +276,7 @@ export class UploadStream extends GitStream {
   }
 }
 
-export class ReceiveStream extends GitStream {
+export class ReceivePack extends GitBasePack {
   public readonly service = 'receive-pack';
 
   public async _write(buffer, enc, next) {

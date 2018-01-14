@@ -7,17 +7,17 @@ import { Readable, Writable } from 'stream';
 import * as through from 'through';
 // from libraries
 import { GitSmartProxy, ServiceType } from '../src';
-import { GitStream, ReceiveStream, UploadStream } from '../src/source';
+import { GitBasePack, ReceivePack, UploadPack } from '../src/source';
 
 interface CreateSourceOptions {
   input?: Writable;
   output?: Readable;
   messages?: Iterable<string> | IterableIterator<string>;
   has_input: boolean;
-  Stream: typeof GitStream | typeof UploadStream | typeof ReceiveStream;
+  Pack: typeof GitBasePack | typeof UploadPack | typeof ReceivePack;
 }
 
-function create_source({input, output, messages, has_input, Stream}: CreateSourceOptions) {
+function create_source({input, output, messages, has_input, Pack}: CreateSourceOptions) {
   if (!(output && output.readable)) {
     output = through();
   }
@@ -27,7 +27,7 @@ function create_source({input, output, messages, has_input, Stream}: CreateSourc
   }
 
   // @ts-ignore
-  const source = new Stream({
+  const source = new Pack({
     command: (c, r, a) => ({stdout: output, stdin: input}),
     has_input,
   });
@@ -90,7 +90,7 @@ describe('UploadStream', () => {
     ]) as Readable;
 
     const source = create_source({
-      Stream: UploadStream,
+      Pack: UploadPack,
       has_input: true,
     });
 
@@ -128,7 +128,7 @@ describe('ReceiveStream', () => {
     const input = intoStream(results) as Readable;
 
     const source = create_source({
-      Stream: ReceiveStream,
+      Pack: ReceivePack,
       has_input: true,
     });
 
@@ -167,7 +167,7 @@ describe('ReceiveStream', () => {
     );
 
     const source = create_source({
-      Stream: ReceiveStream,
+      Pack: ReceivePack,
       has_input: true,
       input: throughput,
     });

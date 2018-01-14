@@ -9,7 +9,7 @@ import { Context, Middleware } from 'koa'; // tslint:disable-line
 import { Readable, Writable } from 'stream';
 import { createGunzip } from 'zlib';
 // from library
-import { GitCommand, GitMetadata, GitStream, ReceiveStream, Seperator, UploadStream } from './source';
+import { GitCommand, GitMetadata, ReceivePack, Seperator, UploadPack } from './source';
 
 // See https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
 
@@ -43,7 +43,7 @@ export class GitSmartProxy {
   public metadata: GitMetadata;
 
   // @ts-ignore suppress error [1166]
-  private [SymbolSource]?: GitStream;
+  private [SymbolSource]?: ReceivePack | UploadPack;
   private __context: Context;
   private __service: ServiceType;
   private __status: RequestStatus = RequestStatus.PENDING;
@@ -66,12 +66,12 @@ export class GitSmartProxy {
 
     this[SymbolSource] = service === 'upload-pack'
     // Upload pack
-    ? new UploadStream({
+    ? new UploadPack({
         command,
         has_input,
       })
     // Receive pack
-    : new ReceiveStream({
+    : new ReceivePack({
         command,
         has_input,
       });
