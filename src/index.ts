@@ -9,8 +9,7 @@ import { Context, Middleware } from 'koa'; // tslint:disable-line
 import { Readable, Writable } from 'stream';
 import { createGunzip } from 'zlib';
 // from library
-import { seperate } from './helpers';
-import { GitCommand, GitMetadata, GitStream, ReceiveStream, UploadStream } from './source';
+import { GitCommand, GitMetadata, ReceivePack, Seperator, UploadPack } from './source';
 
 // See https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
 
@@ -40,11 +39,11 @@ const match_array = new Map<ServiceType, [string, RegExp]>([
 ]);
 
 export class GitSmartProxy {
-  public repository: string;
+  public repository?: string;
   public metadata: GitMetadata;
 
   // @ts-ignore suppress error [1166]
-  private [SymbolSource]?: GitStream;
+  private [SymbolSource]?: ReceivePack | UploadPack;
   private __context: Context;
   private __service: ServiceType;
   private __status: RequestStatus = RequestStatus.PENDING;
@@ -53,7 +52,7 @@ export class GitSmartProxy {
   constructor(context: Context, command: GitCommand) {
     this.__context = context;
 
-    const {type = ServiceType.UNKNOWN, repository = '', service, content_type} = this.match();
+    const {type, repository, service, content_type} = this.match();
 
     this.repository = repository;
     this.__service = type;
@@ -63,22 +62,22 @@ export class GitSmartProxy {
       return this;
     }
 
-    const has_info = this.service === ServiceType.INFO;
+    const has_input = this.service !== ServiceType.INFO;
 
     this[SymbolSource] = service === 'upload-pack'
     // Upload pack
-    ? new UploadStream({
+    ? new UploadPack({
         command,
-        has_info,
+        has_input,
       })
     // Receive pack
-    : new ReceiveStream({
+    : new ReceivePack({
         command,
-        has_info,
+        has_input,
       });
 
     // We have a request body to pipe
-    if (!has_info) {
+    if (has_input) {
       let pipe: Readable = context.req;
 
       pipe.on('error', (err) => context.throw(err));
@@ -91,7 +90,7 @@ export class GitSmartProxy {
 
       // Split chunck into packets
       pipe = pipe.
-        pipe(seperate()).
+        pipe(new Seperator()).
         on('error', (err) => context.throw(err)).
         pipe(this[SymbolSource]).
         on('error', (err) => context.throw(err));
@@ -107,7 +106,7 @@ export class GitSmartProxy {
   }
 
   public async accept(): Promise<void>;
-  public async accept(repo_path: string): Promise<void>;
+  public async accept(alternative_path: string): Promise<void>;
   public async accept(repo_path?: string) {
     if (this.status !== RequestStatus.PENDING) {
       return;
@@ -121,6 +120,10 @@ export class GitSmartProxy {
     }
 
     if (!repo_path) {
+      if (!this.repository) {
+        return;
+      }
+
       repo_path = this.repository;
     }
 
@@ -177,6 +180,20 @@ export class GitSmartProxy {
     ctx.body = reason;
   }
 
+  public async exists(): Promise<boolean>;
+  public async exists(alternative_path: string): Promise<boolean>;
+  public async exists(repo_path?: string): Promise<boolean> {
+    if (!repo_path) {
+      if (!this.repository) {
+        return false;
+      }
+
+      repo_path = this.repository;
+    }
+
+    return this[SymbolSource].exists(repo_path);
+  }
+
   public verbose(...messages: Array<string | Buffer>) {
     this[SymbolSource].verbose(messages);
   }
@@ -195,7 +212,7 @@ export class GitSmartProxy {
 
         // Invlaid method
         if (method !== ctx.method) {
-          return;
+          break;
         }
 
         const service = get_service(isInfo
@@ -205,12 +222,12 @@ export class GitSmartProxy {
 
         // Invalid service
         if (!service) {
-          return;
+          break;
         }
 
         // Invalid post request
         if (!isInfo && ctx.get('content-type') !== `application/x-git-${service}-request`) {
-          return;
+          break;
         }
 
         if (isInfo) {
@@ -225,6 +242,8 @@ export class GitSmartProxy {
         };
       }
     }
+
+    return {type: ServiceType.UNKNOWN};
   }
 
   private set_cache_options() {
@@ -275,10 +294,12 @@ export class GitSmartProxy {
         root_folder = process.cwd();
       }
 
-      command = (repo_path, cmd, args) => {
+      command = (repo_path, cmd, args = []) => {
         const full_path = resolve(root_folder, repo_path);
 
-        return spawn(runtime, [cmd, ...args, full_path]);
+        return spawn(runtime, [cmd, ...args, full_path], {
+          cwd: full_path,
+        });
       };
     }
 
@@ -288,19 +309,19 @@ export class GitSmartProxy {
 
       await next();
 
-      // If auto_deploy defined is and status is still pending -> deploy
+      // If auto_deploy is defined and request is still pending -> deploy
       if (undefined !== auto_deploy && proxy.status === RequestStatus.PENDING) {
-        // No repository -> Repository not found
-        if (!proxy.repository) {
+        // No repository -> Not found
+        if (!(await proxy.exists())) {
           return proxy.reject(HttpCodes.NOT_FOUND);
         }
 
-        // Unknown service -> Forbidden (see link at top)
+        // Unknown service -> Forbidden (default for protocol, see link at top)
         if (proxy.service !== ServiceType.UNKNOWN) {
-          return proxy.reject(HttpCodes.FORBIDDEN);
+          return proxy.reject();
         }
 
-        // Accept or reject? That is the question.
+        // Accept or reject
         return auto_deploy ? proxy.accept() : proxy.reject();
       }
     };
@@ -359,8 +380,8 @@ function get_service(input: string): 'receive-pack' | 'upload-pack' {
 }
 
 interface MatchResult {
-  content_type: string;
-  repository: string;
-  service: 'upload-pack' | 'receive-pack';
+  content_type?: string;
+  repository?: string;
+  service?: 'upload-pack' | 'receive-pack';
   type: ServiceType;
 }

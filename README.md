@@ -223,6 +223,24 @@ Creates a middleware attaching a new instance to context.
 - \<[Function](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)>
   A koa middleware function.
 
+#### Usage examples
+
+Bare usage.
+
+```js
+const { createServer } = require('http');
+const koa =  require('koa');
+const { middleware } = require('koa-git-smart-proxy');
+
+const app = new koa;
+
+app.use(middleware({auto_deploy: true}));
+
+const server = createServer(app.callback());
+
+server.listen(3000, () => console.log('listening on port 3000'));
+```
+
 ### **GitSmartProxy** (class) (export)
 
 *Note:* It is adviced against using the `new` keyword when creating new instances.
@@ -299,31 +317,28 @@ Return a promise for the instance.
 Bare usage.
 
 ```js
-const koa =  require('koa');
 const { spawn } = require('child_process');
-const { exsist } = require('fs');
+const { exists } = require('fs');
 const { createServer } = require('http');
-const { GitSmartProxy } = require('koa-git-smart-proxy');
+const koa =  require('koa');
+const { GitSmartProxy, ServiceType } = require('koa-git-smart-proxy');
 const { resolve } = require('path');
-const { promiseify } = require('util');
+const { promisify } = require('util');
 
-const command = (r, c, ar) => spawn('git', [c, ...ar, resolve(r)]);
+const command = (r, c, ar = []) => spawn('git', [c, ...ar, resolve(r)], {cwd: resolve(r)});
 
 const app = new koa;
 
 app.use(async(ctx) => {
-  const service = await GitSmartProxy.create(context, command);
+  const service = await GitSmartProxy.create(ctx, command);
 
   // Not found
-  if ( ! (
-    service.repository &&
-    await promiseify(exsists)(resolve(service.repository))
-  ) ) {
+  if (!(await service.exists())) {
     return service.reject(404);
   }
 
   // Forbidden
-  if (service.service !== ServiceType.UNKNOWN) {
+  if (service.service === ServiceType.UNKNOWN) {
     return service.reject();
   }
 
@@ -358,36 +373,20 @@ Creates a middleware attaching a new instance to context.
 
 - [GitSmartProxy.create](#GitSmartProxy.create)
 
+- [middleware](#middlware)
+
 #### Usage examples
 
 Bare usage.
 
 ```js
-const koa =  require('koa');
-const { spawn } = require('child_process');
-const { exsist } = require('fs');
 const { createServer } = require('http');
-const { middleware } = require('koa-git-smart-proxy');
-const { resolve } = require('path');
-const { promiseify } = require('util');
-
-const command = (r, c, ar) => spawn('git', [c, ...ar, resolve(r)]);
+const koa =  require('koa');
+const { GitSmartProxy } = require('koa-git-smart-proxy');
 
 const app = new koa;
 
-app.use(middleware({auto_deploy: true}));
-
-app.use(async(ctx) => {
-  const {proxy} = ctx.state;
-
-  // Not found on disc
-  if ( ! (
-    proxy.repository &&
-    await proxy.exists();
-  ) ) {
-    proxy.repository = '';
-  }
-});
+app.use(GitSmartProxy.middleware({auto_deploy: true}));
 
 const server = createServer(app.callback());
 
@@ -599,4 +598,5 @@ npm install --save-dev @types/node
 ```
 
 ## License
+
 MIT

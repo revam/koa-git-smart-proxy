@@ -1,20 +1,18 @@
 // from packages
 import * as encode from 'git-side-band-message';
-import { Duplex, Readable, Writable } from 'stream';
+import { Duplex, Readable, Transform, Writable } from 'stream';
 import { promisify } from 'util';
-// from library
-import { GitSmartProxy, ServiceType } from '.';
-import { pkt_length } from './helpers';
 
-const zero_buffer = new Buffer('0000');
+const zero_buffer = Buffer.from('0000');
+const empty_repo_error = Buffer.from('have any commits yet\n');
 
 const matches = {
-  'receive-pack': /^[0-9a-f]{4}([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/([^\/]+?)s?\/(.*?))(?:\u0000([^\n]*)?\n?$)/,
+  'receive-pack': /^[0-9a-f]{4}([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/([^\/]+)\/(.*?))(?:\u0000([^\n]*)?\n?$)/,
   'upload-pack':  /^[0-9a-f]{4}(want|have) ([0-9a-f]{40})\n?$/,
 };
 
 // Hardcoded headers
-const headers = {
+export const Headers = {
   'receive-pack': Buffer.from('001f# service=git-receive-pack\n0000'),
   'upload-pack': Buffer.from('001e# service=git-upload-pack\n0000'),
 };
@@ -26,9 +24,11 @@ export const SymbolVerbose = Symbol('verbose stream');
 export interface GitMetadata {
   want?: string[];
   have?: string[];
-  reftype?: string;
-  refname?: string;
-  ref?: string;
+  ref?: {
+    name: string;
+    path: string;
+    type: string;
+  };
   old_commit?: string;
   new_commit?: string;
   capabilities?: string[];
@@ -40,18 +40,17 @@ export interface GitCommandResult {
   stderr: Readable;
 }
 
-export type GitCommand = (repo_path: string, commmand: string, command_args: string[]) =>
+export type GitCommand = (repository: string, commmand: string, args?: string[]) =>
   GitCommandResult | Promise<GitCommandResult>;
 
 export interface GitStreamOptions {
-  has_info: boolean;
+  has_input: boolean;
   command: GitCommand;
 }
 
-export class GitStream extends Duplex {
+export class GitBasePack extends Duplex {
   public readonly metadata: GitMetadata = {};
   public readonly service: 'upload-pack' | 'receive-pack';
-  public readonly hasInfo: boolean;
 
   // @ts-ignore suppress error [1166]
   private [SymbolSource]: SourceDuplex;
@@ -66,7 +65,6 @@ export class GitStream extends Duplex {
   constructor(options: GitStreamOptions) {
     super();
 
-    this.hasInfo = options.has_info;
     this.__command = options.command;
 
     this.once('parsed', () => {
@@ -149,8 +147,8 @@ export class GitStream extends Duplex {
       source.on('finish', flush);
       this.on('finish', () => source.push(null));
 
-      if (this.hasInfo) {
-        this.push(headers[this.service]);
+      if (!options.has_input) {
+        this.push(Headers[this.service]);
       }
 
       if (this.__ready) {
@@ -158,9 +156,9 @@ export class GitStream extends Duplex {
       }
     });
 
-    if (this.hasInfo) {
+    if (!options.has_input) {
       this.writable = false;
-      this.emit('parsed');
+      setImmediate(() => this.emit('parsed'));
     }
   }
 
@@ -211,7 +209,7 @@ export class GitStream extends Duplex {
   public async process(repository: string) {
     const args = ['--stateless-rpc'];
 
-    if (this.hasInfo) {
+    if (!this.writable) {
       args.push('--advertise-refs');
     }
 
@@ -228,18 +226,19 @@ export class GitStream extends Duplex {
     return new Promise<boolean>(async(resolve) => {
       let exists = true;
 
-      const {stdout} = await this.__command(repository, this.service, ['--advertise-refs']);
+      const {stderr} = await this.__command(repository, 'log', ['-0']);
 
-      stdout.once('error', (err) => exists = false);
-      stdout.once('data', (chunk) =>
-        (exists && (exists = 'fatal' !== chunk.slice(0, 4).toString())));
-      stdout.once('end', () => resolve(exists));
-      stdout.resume();
+      // If we got an error, ckech tailing
+      // bytes if the cause is an empty repo.
+      stderr.once('data', (chunk: Buffer) => {
+        exists = !(chunk.length >= 21 && !chunk.slice(-21).equals(empty_repo_error));
+      });
+      stderr.once('end', () => resolve(exists));
     });
   }
 }
 
-export class UploadStream extends GitStream {
+export class UploadPack extends GitBasePack {
   public readonly service = 'upload-pack';
 
   public async _write(buffer, enc, next) {
@@ -279,7 +278,7 @@ export class UploadStream extends GitStream {
   }
 }
 
-export class ReceiveStream extends GitStream {
+export class ReceivePack extends GitBasePack {
   public readonly service = 'receive-pack';
 
   public async _write(buffer, enc, next) {
@@ -304,9 +303,11 @@ export class ReceiveStream extends GitStream {
       if (results) {
         this.metadata.old_commit = results[1];
         this.metadata.new_commit = results[2];
-        this.metadata.ref = results[3];
-        this.metadata.reftype = results[4];
-        this.metadata.refname = results[5];
+        this.metadata.ref = {
+          name: results[5],
+          path: results[3],
+          type: results[4],
+        };
         this.metadata.capabilities = results[6] ? results[6].trim().split(' ') : [];
       }
 
@@ -315,6 +316,65 @@ export class ReceiveStream extends GitStream {
       this.__next = next;
       this.emit('parsed');
     }
+  }
+}
+
+export class Seperator extends Transform {
+  private underflow?: Buffer;
+
+  public async _transform(buffer: Buffer, encoding, next) {
+    // Start where previous stopped
+    if (this.underflow) {
+      buffer = Buffer.concat([this.underflow, buffer]);
+      this.underflow = undefined;
+    }
+
+    let length = 0;
+    let offset = -1;
+    do {
+      offset = offset + length + 1;
+      length = pkt_length(buffer, offset);
+
+      // Break if no length found on first iteration
+      if (offset === 0 && length === -1) {
+        break;
+      }
+
+      // Special signal (0000) is 4 char long
+      if (length === 0) {
+        length = 4;
+      }
+
+      // We got data underflow (assume one more buffer)
+      if (offset + length > buffer.length) {
+        this.underflow = buffer.slice(offset);
+        break;
+      }
+
+      if (length >= 4) {
+        this.push(buffer.slice(offset, length));
+      } else {
+        this.push(buffer.slice(offset));
+      }
+
+      // Wait till next tick so we can do other stuff inbetween.
+      await new Promise<void>((resolve) => process.nextTick(resolve));
+    } while (length !== -1);
+
+    // We got a data overflow, so append extra data
+    if (!this.underflow && offset < buffer.length) {
+      this.push(buffer.slice(offset));
+    }
+
+    next();
+  }
+}
+
+function pkt_length(buffer: Buffer, offset: number = 0) {
+  try {
+    return Number.parseInt(buffer.slice(offset, 4).toString('utf8'), 16);
+  } catch (err) {
+    return -1;
   }
 }
 
