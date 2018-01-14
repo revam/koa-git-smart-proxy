@@ -191,6 +191,10 @@ export class GitSmartProxy {
       repo_path = this.repository;
     }
 
+    if (!this[SymbolSource]) {
+      return false;
+    }
+
     return this[SymbolSource].exists(repo_path);
   }
 
@@ -201,14 +205,16 @@ export class GitSmartProxy {
   private match(): MatchResult {
     const ctx = this.__context;
 
-    const ref_type = ServiceType.INFO;
+    let repository: string;
+
     for (let [type, [content_type, match]] of match_array) {
       const results = match.exec(ctx.path);
 
       if (results) {
-        const isInfo = ref_type === type;
-
+        const isInfo = type === ServiceType.INFO;
         const method = isInfo ? 'GET' : 'POST';
+
+        repository = results[1];
 
         // Invlaid method
         if (method !== ctx.method) {
@@ -236,14 +242,14 @@ export class GitSmartProxy {
 
         return {
           content_type,
-          repository: results[1],
+          repository,
           service,
           type,
         };
       }
     }
 
-    return {type: ServiceType.UNKNOWN};
+    return {type: ServiceType.UNKNOWN, repository};
   }
 
   private set_cache_options() {
