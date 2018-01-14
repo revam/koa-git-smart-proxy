@@ -1,15 +1,15 @@
 // from packages
 import { ok } from 'assert';
 import { spawn } from 'child_process';
-import { appendFile, exists, mkdir, rmdir } from "fs";
 import * as intoStream from 'into-stream';
-import { join, resolve } from 'path';
+import { resolve } from 'path';
 import { Readable, Writable } from 'stream';
 import { directory } from 'tempy';
 import * as through from 'through';
 import { promisify } from 'util';
 // from libraries
 import { GitBasePack, GitCommand, Headers, ReceivePack, UploadPack } from '../src/source';
+import { create_bare_repo, create_non_repo, create_repo } from './helpers';
 
 interface CreateSourceOptions {
   command?: GitCommand;
@@ -98,7 +98,7 @@ describe('GitBasePack', () => {
     // Test case 1: Non repo
     const test1 = resolve(repos, 'test1');
 
-    await promisify(mkdir)(test1);
+    await create_non_repo(test1);
 
     ok(!await source.exists(test1), 'should not exist');
 
@@ -224,64 +224,3 @@ describe('match', () => {
     done();
   });
 });
-
-async function create_bare_repo(path: string) {
-  // Create directory
-  await promisify(mkdir)(path);
-
-  // Init bare repo
-  await new Promise((done, reject) => {
-    const {stderr} = spawn('git', ['init', '--bare'], {cwd: path});
-
-    stderr.once('data', (chunk) => {
-      stderr.removeListener('end', done);
-      reject(chunk.toString());
-    });
-
-    stderr.once('end', done);
-  });
-}
-
-async function create_repo(path: string) {
-  // Create directory
-  await promisify(mkdir)(path);
-
-  // Init normal repo
-  await new Promise((done, reject) => {
-    const {stderr} = spawn('git', ['init'], {cwd: path});
-
-    stderr.once('data', (chunk) => {
-      stderr.removeListener('end', done);
-      reject(chunk.toString());
-    });
-
-    stderr.once('end', done);
-  });
-
-  // Create an empty README.md
-  await promisify(appendFile)(join(path, 'README.md'), '');
-
-  // Add files
-  await new Promise((done, reject) => {
-    const {stderr} = spawn('git', ['add', '.'], {cwd: path});
-
-    stderr.once('data', (chunk) => {
-      stderr.removeListener('end', done);
-      reject(chunk.toString());
-    });
-
-    stderr.once('end', done);
-  });
-
-  // Commit
-  await new Promise((done, reject) => {
-    const {stderr} = spawn('git', ['commit', '-m', 'Initial commit'], {cwd: path});
-
-    stderr.once('data', (chunk) => {
-      stderr.removeListener('end', done);
-      reject(chunk.toString());
-    });
-
-    stderr.once('end', done);
-  });
-}
