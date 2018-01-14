@@ -7,26 +7,31 @@ import * as koa from 'koa';
 import { Readable, Writable } from 'stream';
 import * as through from 'through';
 // from libraries
-import { middleware } from '../src';
+import { GitCommand, middleware } from '../src';
 
 interface CreateMiddlewareOptions {
+  command?: GitCommand;
   input?: Writable;
   output?: Readable;
 }
 
-function create_middleware({input, output}: CreateMiddlewareOptions = {}) {
-  if (!(output && output.readable)) {
-    output = through();
-  }
+function create_middleware({command, input, output}: CreateMiddlewareOptions = {}) {
+  if (!command) {
+    if (!(output && output.readable)) {
+      output = through();
+    }
 
-  if (!(input && input.writable)) {
-    input = through();
+    if (!(input && input.writable)) {
+      input = through();
+    }
+
+    const stderr = through();
+
+    command = (c, r, a) => ({stdout: output, stdin: input, stderr});
   }
 
   return middleware({
-    git(repo, cmd, args) {
-      return {stdin: input, stdout: output};
-    },
+    git: command,
   });
 }
 
