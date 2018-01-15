@@ -4,14 +4,6 @@ import { Duplex, Readable, Transform, Writable } from 'stream';
 import { promisify } from 'util';
 
 const zero_buffer = Buffer.from('0000');
-const empty_repo_error = Buffer.from('have any commits yet\n');
-
-const matches = {
-  'receive-pack': /^[0-9a-f]{4}([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/([^\/]+)\/(.*?))(?:\u0000([^\n]*)?\n?$)/,
-  'upload-pack':  /^[0-9a-f]{4}(want|have) ([0-9a-f]{40})\n?$/,
-};
-
-const valid_services = new Set<string>(['upload-pack', 'receive-pack']);
 
 // Hardcoded headers
 export const Headers = {
@@ -29,12 +21,6 @@ export enum ServiceType {
   PULL,
   PUSH,
 }
-
-const match_array = new Map<ServiceType, [string, RegExp]>([
-  [ServiceType.INFO, ['application/x-git-%s-advertisement', /^\/?(.*?)\/info\/refs$/]],
-  [ServiceType.PULL, ['application/x-git-upload-pack-result', /^\/?(.*?)\/git-upload-pack$/]],
-  [ServiceType.PUSH, ['application/x-git-receive-pack-result', /^\/?(.*?)\/git-receive-pack$/]],
-]);
 
 export enum RequestStatus {
   PENDING,
@@ -248,6 +234,11 @@ export class GitBasePack extends Duplex {
   }
 }
 
+const parser = {
+  'receive-pack': /^[0-9a-f]{4}([0-9a-f]{40}) ([0-9a-f]{40}) (refs\/([^\/]+)\/(.*?))(?:\u0000([^\n]*)?\n?$)/,
+  'upload-pack':  /^[0-9a-f]{4}(want|have) ([0-9a-f]{40})\n?$/,
+};
+
 export class UploadPack extends GitBasePack {
   public readonly service = 'upload-pack';
 
@@ -268,7 +259,7 @@ export class UploadPack extends GitBasePack {
     // Parse till we reach specal signal (0000) or unrecognisable data.
     if (length > 0) {
       const message = buffer.toString('utf8');
-      const results = matches[this.service].exec(message);
+      const results = parser[this.service].exec(message);
 
       if (results) {
         const type = results[1];
@@ -308,7 +299,7 @@ export class ReceivePack extends GitBasePack {
     // Parse till we reach specal signal (0000) or unrecognisable data.
     if (length > 0) {
       const message = buffer.toString('utf8');
-      const results = matches[this.service].exec(message);
+      const results = parser[this.service].exec(message);
 
       if (results) {
         this.metadata.old_commit = results[1];
@@ -381,79 +372,88 @@ export class Seperator extends Transform {
 }
 
 export interface MatchQuery {
-  command: GitCommand;
-  content_type: string;
-  method: string;
-  path: string;
+  content_type?: string;
+  method?: string;
+  path?: string;
   service?: string;
 }
 
 export interface MatchResult {
   content_type?: string;
   repository?: string;
+  service: ServiceType;
   source?: GitBasePack;
-  type: ServiceType;
 }
 
-export function match(input: MatchQuery): MatchResult {
+const valid_services = new Map<ServiceType, [string, RegExp]>([
+  [ServiceType.INFO, ['application/x-git-%s-advertisement', /^\/?(.*?)\/info\/refs$/]],
+  [ServiceType.PULL, ['application/x-git-upload-pack-result', /^\/?(.*?)\/git-upload-pack$/]],
+  [ServiceType.PUSH, ['application/x-git-receive-pack-result', /^\/?(.*?)\/git-receive-pack$/]],
+]);
+
+export function match(command: GitCommand, input: MatchQuery = {}): MatchResult {
   let repository: string;
 
-  for (let [type, [content_type, regex]] of match_array) {
-    const results = regex.exec(input.path);
+  if (input.method && input.path) {
+    for (let [service, [content_type, regex]] of valid_services) {
+      const results = regex.exec(input.path);
 
-    if (results) {
-      const has_input = type === ServiceType.INFO;
-      const method = has_input ? 'GET' : 'POST';
+      if (results) {
+        const has_input = service !== ServiceType.INFO;
+        const method = has_input ? 'GET' : 'POST';
 
-      repository = results[1];
+        repository = results[1];
 
-      // Invlaid method
-      if (method !== input.method) {
-        break;
+        // Invlaid method
+        if (method !== input.method) {
+          break;
+        }
+
+        const service_name = get_service(has_input
+        ? input.service
+        : input.path.slice(results[1].length + 1),
+        );
+
+        // Invalid service
+        if (!service_name) {
+          break;
+        }
+
+        // Invalid post request
+        if (has_input && input.content_type !== `application/x-git-${service_name}-request`) {
+          break;
+        }
+
+        if (!has_input) {
+          content_type = content_type.replace('%s', service_name);
+        }
+
+        const source = service_name === 'upload-pack'
+        // Upload pack
+        ? new UploadPack({
+            command,
+            has_input,
+          })
+        // Receive pack
+        : new ReceivePack({
+            command,
+            has_input,
+          });
+
+        return {
+          content_type,
+          repository,
+          service,
+          source,
+        };
       }
-
-      const service = get_service(has_input
-      ? input.service
-      : input.path.slice(results[1].length + 1),
-      );
-
-      // Invalid service
-      if (!service) {
-        break;
-      }
-
-      // Invalid post request
-      if (!has_input && input.content_type !== `application/x-git-${service}-request`) {
-        break;
-      }
-
-      if (has_input) {
-        content_type = content_type.replace('%s', service);
-      }
-
-      const source = service === 'upload-pack'
-      // Upload pack
-      ? new UploadPack({
-          command: input.command,
-          has_input,
-        })
-      // Receive pack
-      : new ReceivePack({
-          command: input.command,
-          has_input,
-        });
-
-      return {
-        content_type,
-        repository,
-        source,
-        type,
-      };
     }
   }
 
-  return {type: ServiceType.UNKNOWN, repository};
+  return {service: ServiceType.UNKNOWN, repository};
 }
+
+const empty_repo_error = Buffer.from('have any commits yet\n');
 
 export function exists(command: GitCommand, repository: string) {
   return new Promise<boolean>(async(resolve) => {
@@ -470,6 +470,8 @@ export function exists(command: GitCommand, repository: string) {
   });
 }
 
+const valid_service_names = new Set<string>(['upload-pack', 'receive-pack']);
+
 function get_service(input: string): string {
   if (!(input && input.startsWith('git-'))) {
     return;
@@ -477,7 +479,7 @@ function get_service(input: string): string {
 
   const service = input.slice(4);
 
-  if (valid_services.has(service)) {
+  if (valid_service_names.has(service)) {
     return service;
   }
 }

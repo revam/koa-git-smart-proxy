@@ -24,7 +24,7 @@ interface CreateSourceOptions {
   output?: Readable;
   messages?: Iterable<string> | IterableIterator<string>;
   has_input: boolean;
-  Pack: typeof GitBasePack | typeof UploadPack | typeof ReceivePack;
+  Pack: typeof GitBasePack;
 }
 
 function create_source({command, input, output, messages, has_input, Pack}: CreateSourceOptions) {

@@ -1,6 +1,5 @@
 // from packages
 import { spawn } from 'child_process';
-import { IncomingHttpHeaders, OutgoingHttpHeaders } from 'http';
 import * as HttpCodes from 'http-status';
 import { Context, Middleware } from 'koa';
 import { resolve } from 'path';
@@ -45,10 +44,7 @@ export class GitSmartProxy {
   private __content_type: string;
 
   constructor(context: Context, command: GitCommand) {
-    this.__context = context;
-
-    const {type, repository, source, content_type} = match({
-      command,
+    const {content_type, service, repository, source} = match(command, {
       content_type: context.get('content-type'),
       method: context.method,
       path: context.path,
@@ -56,9 +52,10 @@ export class GitSmartProxy {
     });
 
     this.repository = repository;
-    this.__service = type;
     this.__content_type = content_type;
+    this.__context = context;
     this.__exists = exists.bind(null, command);
+    this.__service = service;
 
     if (this.__service === ServiceType.UNKNOWN) {
       return this;
@@ -88,11 +85,11 @@ export class GitSmartProxy {
     }
   }
 
-  get service() {
+  public get service() {
     return this.__service;
   }
 
-  get status() {
+  public get status() {
     return this.__status;
   }
 
