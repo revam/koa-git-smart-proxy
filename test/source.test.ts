@@ -90,7 +90,7 @@ describe('GitStream', () => {
       has_input: false,
     });
 
-    await source.wait();
+    await source.process_input();
 
     // Create temp folder
     const repos = directory();

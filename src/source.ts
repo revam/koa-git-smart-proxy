@@ -11,6 +11,8 @@ const matches = {
   'upload-pack':  /^[0-9a-f]{4}(want|have) ([0-9a-f]{40})\n?$/,
 };
 
+const valid_services = new Set<string>(['upload-pack', 'receive-pack']);
+
 // Hardcoded headers
 export const Headers = {
   'receive-pack': Buffer.from('001f# service=git-receive-pack\n0000'),
