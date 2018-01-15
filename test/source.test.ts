@@ -48,7 +48,7 @@ function create_source({command, input, output, messages, has_input, Pack}: Crea
   return source;
 }
 
-describe('GitStream', () => {
+describe('GitBasePack', () => {
   it('should advertise when no input is supplied', async(done) => {
     const test_buffer = Buffer.from('test buffer');
 
@@ -124,7 +124,7 @@ describe('GitStream', () => {
   });
 });
 
-describe('UploadStream', () => {
+describe('UploadPack', () => {
   it('should understand valid requests to git-upload-pack service', async(done) => {
     // Random
     const input = intoStream([
@@ -162,7 +162,7 @@ describe('UploadStream', () => {
   });
 });
 
-describe('ReceiveStream', () => {
+describe('ReceivePack', () => {
   const results = [
     // tslint:disable-next-line
     '00760a53e9ddeaddad63ad106860237bbf53411d11a7 441b40d833fdfa93eb2908e52742248faf0ee993 refs/heads/maint\0 report-status\n',

@@ -76,10 +76,11 @@ export class GitSmartProxy {
           on('error', (err) => context.throw(err));
       }
 
-      // Split chunck into packets
       pipe = pipe.
+        // Split chunck into packets
         pipe(new Seperator()).
         on('error', (err) => context.throw(err)).
+        // Process input
         pipe(source).
         on('error', (err) => context.throw(err));
     }
@@ -196,22 +197,16 @@ export class GitSmartProxy {
     this.__context.set('Cache-Control', 'no-cache, max-age=0, must-revalidate');
   }
 
-  private async wait() {
-    const source = this[SymbolSource];
-
-    // Wait for source
-    await source.wait();
-
-    // Set metadata
-    this.metadata = source.metadata;
-  }
-
   public static async create(context: Context, command: GitCommand) {
     const service = new GitSmartProxy(context, command);
 
-    // Wait till ready
+    // Wait for source and set metadata
     if (service.service !== ServiceType.UNKNOWN) {
-      await service.wait();
+      const source = service[SymbolSource];
+
+      await source.process_input();
+
+      service.metadata = source.metadata;
     }
 
     return service;
@@ -226,6 +221,7 @@ export class GitSmartProxy {
     } else {
       let runtime = 'git';
       let root_folder: string;
+
       if ('object' === typeof options.git) {
         if (options.git.executable_path) {
           runtime = options.git.executable_path;
@@ -241,7 +237,7 @@ export class GitSmartProxy {
       command = (repo_path, cmd, args = []) => {
         const full_path = resolve(root_folder, repo_path);
 
-        return spawn(runtime, [cmd, ...args, full_path], {
+        return spawn(runtime, [cmd, ...args, '.'], {
           cwd: full_path,
         });
       };
@@ -274,11 +270,6 @@ export class GitSmartProxy {
 
 export function middleware(options?: MiddlewareOptions) {
   return GitSmartProxy.middleware(options);
-}
-
-export interface GitProxyOptions {
-  context: Context;
-  command: GitCommand;
 }
 
 export interface MiddlewareOptions {

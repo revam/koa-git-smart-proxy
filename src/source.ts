@@ -64,7 +64,7 @@ export interface GitCommandResult {
 export type GitCommand = (repository: string, commmand: string, args?: string[]) =>
   GitCommandResult | Promise<GitCommandResult>;
 
-export interface GitStreamOptions {
+export interface GitBasePackOptions {
   has_input: boolean;
   command: GitCommand;
 }
@@ -83,7 +83,7 @@ export class GitBasePack extends Duplex {
   protected __next?: (err?: Error) => void;
   protected __buffers?: Buffer[] = [];
 
-  constructor(options: GitStreamOptions) {
+  constructor(options: GitBasePackOptions) {
     super();
 
     this.__command = options.command;
