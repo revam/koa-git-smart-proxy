@@ -246,21 +246,6 @@ export class GitBasePack extends Duplex {
 
     stdout.pipe(source).pipe(stdin);
   }
-
-  public exists(repository: string) {
-    return new Promise<boolean>(async(resolve) => {
-      let exists = true;
-
-      const {stderr} = await this.__command(repository, 'log', ['-0']);
-
-      // If we got an error, ckech tailing
-      // bytes if the cause is an empty repo.
-      stderr.once('data', (chunk: Buffer) => {
-        exists = !(chunk.length >= 21 && !chunk.slice(-21).equals(empty_repo_error));
-      });
-      stderr.once('end', () => resolve(exists));
-    });
-  }
 }
 
 export class UploadPack extends GitBasePack {
@@ -468,6 +453,21 @@ export function match(input: MatchQuery): MatchResult {
   }
 
   return {type: ServiceType.UNKNOWN, repository};
+}
+
+export function exists(command: GitCommand, repository: string) {
+  return new Promise<boolean>(async(resolve) => {
+    let do_exists = true;
+
+    const {stderr} = await command(repository, 'log', ['-0']);
+
+    // If we got an error, ckech tailing
+    // bytes if the cause is an empty repo.
+    stderr.once('data', (chunk: Buffer) => {
+      do_exists = !(chunk.length >= 21 && !chunk.slice(-21).equals(empty_repo_error));
+    });
+    stderr.once('end', () => resolve(do_exists));
+  });
 }
 
 function get_service(input: string): string {

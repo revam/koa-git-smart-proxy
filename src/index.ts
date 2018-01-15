@@ -1,6 +1,5 @@
 // from packages
 import { spawn } from 'child_process';
-import { exists } from 'fs';
 import { IncomingHttpHeaders, OutgoingHttpHeaders } from 'http';
 import * as HttpCodes from 'http-status';
 import { Context, Middleware } from 'koa';
@@ -10,6 +9,7 @@ import { promisify } from 'util';
 import { createGunzip } from 'zlib';
 // from library
 import {
+  exists,
   GitBasePack,
   GitCommand,
   GitMetadata,
@@ -38,6 +38,7 @@ export class GitSmartProxy {
 
   // @ts-ignore suppress error [1166]
   private [SymbolSource]?: GitBasePack;
+  private __exists?(repository: string): Promise<boolean>;
   private __context: Context;
   private __service: ServiceType;
   private __status: RequestStatus = RequestStatus.PENDING;
@@ -57,6 +58,7 @@ export class GitSmartProxy {
     this.repository = repository;
     this.__service = type;
     this.__content_type = content_type;
+    this.__exists = exists.bind(null, command);
 
     if (this.__service === ServiceType.UNKNOWN) {
       return this;
@@ -180,11 +182,7 @@ export class GitSmartProxy {
       repo_path = this.repository;
     }
 
-    if (!this[SymbolSource]) {
-      return false;
-    }
-
-    return this[SymbolSource].exists(repo_path);
+    return this.__exists(repo_path);
   }
 
   public verbose(...messages: Array<string | Buffer>) {

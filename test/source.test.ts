@@ -8,7 +8,14 @@ import { directory } from 'tempy';
 import * as through from 'through';
 import { promisify } from 'util';
 // from libraries
-import { GitBasePack, GitCommand, Headers, ReceivePack, UploadPack } from '../src/source';
+import {
+  exists,
+  GitBasePack,
+  GitCommand,
+  Headers,
+  ReceivePack,
+  UploadPack,
+} from '../src/source';
 import { create_bare_repo, create_non_repo, create_repo } from './helpers';
 
 interface CreateSourceOptions {
@@ -84,13 +91,7 @@ describe('GitBasePack', () => {
   });
 
   it('should be able to check if given repo is a valid one.', async(done) => {
-    const source = create_source({
-      Pack: GitBasePack,
-      command: (r, c, a = []) => spawn('git', [c, ...a, '.'], {cwd: r}),
-      has_input: false,
-    });
-
-    await source.process_input();
+    const command = (r, c, a = []) => spawn('git', [c, ...a, '.'], {cwd: r});
 
     // Create temp folder
     const repos = directory();
@@ -100,21 +101,21 @@ describe('GitBasePack', () => {
 
     await create_non_repo(test1);
 
-    ok(!await source.exists(test1), 'should not exist');
+    ok(!await exists(command, test1), 'should not exist');
 
     // Test case 2: Non-init. repo
     const test2 = resolve(repos, 'test2');
 
     await create_repo(test2);
 
-    ok(await source.exists(test2), 'should exist');
+    ok(await exists(command, test2), 'should exist, though no log');
 
-    // Test case 3: Init. repo
+    // Test case 3: Init. repo with commit
     const test3 = resolve(repos, 'test3');
 
     await create_bare_repo(test3);
 
-    ok(await source.exists(test3), 'should exist, though no log');
+    ok(await exists(command, test3), 'should exist');
 
     done();
   }, 10000);
