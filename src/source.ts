@@ -21,6 +21,25 @@ export const SymbolSource = Symbol('source stream');
 
 export const SymbolVerbose = Symbol('verbose stream');
 
+export enum ServiceType {
+  UNKNOWN,
+  INFO,
+  PULL,
+  PUSH,
+}
+
+const match_array = new Map<ServiceType, [string, RegExp]>([
+  [ServiceType.INFO, ['application/x-git-%s-advertisement', /^\/?(.*?)\/info\/refs$/]],
+  [ServiceType.PULL, ['application/x-git-upload-pack-result', /^\/?(.*?)\/git-upload-pack$/]],
+  [ServiceType.PUSH, ['application/x-git-receive-pack-result', /^\/?(.*?)\/git-receive-pack$/]],
+]);
+
+export enum RequestStatus {
+  PENDING,
+  ACCEPTED,
+  REJECTED,
+}
+
 export interface GitMetadata {
   want?: string[];
   have?: string[];
@@ -162,6 +181,10 @@ export class GitBasePack extends Duplex {
     }
   }
 
+  public get has_input() {
+    return this.writable;
+  }
+
   public verbose(messages: Iterable<string | Buffer> | IterableIterator<string | Buffer>) {
     if (!this[SymbolVerbose]) {
       const band = this[SymbolVerbose] = new Writable() as WritableBand;
@@ -196,7 +219,7 @@ export class GitBasePack extends Duplex {
     }
   }
 
-  public wait() {
+  public process_input() {
     return new Promise<void>((resolve) => {
       if (this[SymbolSource]) {
         return resolve();
@@ -206,7 +229,7 @@ export class GitBasePack extends Duplex {
     });
   }
 
-  public async process(repository: string) {
+  public async accept(repository: string) {
     const args = ['--stateless-rpc'];
 
     if (!this.writable) {
@@ -367,6 +390,93 @@ export class Seperator extends Transform {
     }
 
     next();
+  }
+}
+
+export interface MatchQuery {
+  command: GitCommand;
+  content_type: string;
+  method: string;
+  path: string;
+  service?: string;
+}
+
+export interface MatchResult {
+  content_type?: string;
+  repository?: string;
+  source?: GitBasePack;
+  type: ServiceType;
+}
+
+export function match(input: MatchQuery): MatchResult {
+  let repository: string;
+
+  for (let [type, [content_type, regex]] of match_array) {
+    const results = regex.exec(input.path);
+
+    if (results) {
+      const has_input = type === ServiceType.INFO;
+      const method = has_input ? 'GET' : 'POST';
+
+      repository = results[1];
+
+      // Invlaid method
+      if (method !== input.method) {
+        break;
+      }
+
+      const service = get_service(has_input
+      ? input.service
+      : input.path.slice(results[1].length + 1),
+      );
+
+      // Invalid service
+      if (!service) {
+        break;
+      }
+
+      // Invalid post request
+      if (!has_input && input.content_type !== `application/x-git-${service}-request`) {
+        break;
+      }
+
+      if (has_input) {
+        content_type = content_type.replace('%s', service);
+      }
+
+      const source = service === 'upload-pack'
+      // Upload pack
+      ? new UploadPack({
+          command: input.command,
+          has_input,
+        })
+      // Receive pack
+      : new ReceivePack({
+          command: input.command,
+          has_input,
+        });
+
+      return {
+        content_type,
+        repository,
+        source,
+        type,
+      };
+    }
+  }
+
+  return {type: ServiceType.UNKNOWN, repository};
+}
+
+function get_service(input: string): string {
+  if (!(input && input.startsWith('git-'))) {
+    return;
+  }
+
+  const service = input.slice(4);
+
+  if (valid_services.has(service)) {
+    return service;
   }
 }
 

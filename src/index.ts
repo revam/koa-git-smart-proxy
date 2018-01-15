@@ -9,41 +9,35 @@ import { Readable, Writable } from 'stream';
 import { promisify } from 'util';
 import { createGunzip } from 'zlib';
 // from library
-import { GitCommand, GitMetadata, ReceivePack, Seperator, UploadPack } from './source';
+import {
+  GitCommand,
+  GitMetadata,
+  GitBasePack.
+  match,
+  ReceivePack,
+  RequestStatus,
+  Seperator,
+  ServiceType,
+} from './source';
 
 // See https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
 
-export { GitCommand, GitCommandResult, GitMetadata } from './source';
+export {
+  GitCommand,
+  GitCommandResult,
+  GitMetadata,
+  ServiceType,
+  RequestStatus,
+} from './source';
 
 export const SymbolSource = Symbol('source');
-
-export enum ServiceType {
-  UNKNOWN,
-  INFO,
-  PULL,
-  PUSH,
-}
-
-export enum RequestStatus {
-  PENDING,
-  ACCEPTED,
-  REJECTED,
-}
-
-const post_types = new Set([ServiceType.PUSH, ServiceType.PULL]);
-const valid_services = new Set<string>(['upload-pack', 'receive-pack']);
-const match_array = new Map<ServiceType, [string, RegExp]>([
-  [ServiceType.PULL, ['application/x-git-upload-pack-result', /^\/?(.*?)\/git-upload-pack$/]],
-  [ServiceType.PUSH, ['application/x-git-receive-pack-result', /^\/?(.*?)\/git-receive-pack$/]],
-  [ServiceType.INFO, ['application/x-git-%s-advertisement', /^\/?(.*?)\/info\/refs$/]],
-]);
 
 export class GitSmartProxy {
   public repository?: string;
   public metadata: GitMetadata;
 
   // @ts-ignore suppress error [1166]
-  private [SymbolSource]?: ReceivePack | UploadPack;
+  private [SymbolSource]?: GitBasePack;
   private __context: Context;
   private __service: ServiceType;
   private __status: RequestStatus = RequestStatus.PENDING;
@@ -52,7 +46,13 @@ export class GitSmartProxy {
   constructor(context: Context, command: GitCommand) {
     this.__context = context;
 
-    const {type, repository, service, content_type} = this.match();
+    const {type, repository, source, content_type} = match({
+      command,
+      content_type: context.get('content-type'),
+      method: context.method,
+      path: context.path,
+      service: context.query.service,
+    });
 
     this.repository = repository;
     this.__service = type;
@@ -62,22 +62,10 @@ export class GitSmartProxy {
       return this;
     }
 
-    const has_input = this.service !== ServiceType.INFO;
-
-    this[SymbolSource] = service === 'upload-pack'
-    // Upload pack
-    ? new UploadPack({
-        command,
-        has_input,
-      })
-    // Receive pack
-    : new ReceivePack({
-        command,
-        has_input,
-      });
+    this[SymbolSource] = source;
 
     // We have a request body to pipe
-    if (has_input) {
+    if (source.has_input) {
       let pipe: Readable = context.req;
 
       pipe.on('error', (err) => context.throw(err));
@@ -92,7 +80,7 @@ export class GitSmartProxy {
       pipe = pipe.
         pipe(new Seperator()).
         on('error', (err) => context.throw(err)).
-        pipe(this[SymbolSource]).
+        pipe(source).
         on('error', (err) => context.throw(err));
     }
   }
@@ -129,7 +117,7 @@ export class GitSmartProxy {
 
     const source = this[SymbolSource];
 
-    await source.process(repo_path);
+    await source.accept(repo_path);
 
     const ctx = this.__context;
 
@@ -200,56 +188,6 @@ export class GitSmartProxy {
 
   public verbose(...messages: Array<string | Buffer>) {
     this[SymbolSource].verbose(messages);
-  }
-
-  private match(): MatchResult {
-    const ctx = this.__context;
-
-    let repository: string;
-
-    for (let [type, [content_type, match]] of match_array) {
-      const results = match.exec(ctx.path);
-
-      if (results) {
-        const isInfo = type === ServiceType.INFO;
-        const method = isInfo ? 'GET' : 'POST';
-
-        repository = results[1];
-
-        // Invlaid method
-        if (method !== ctx.method) {
-          break;
-        }
-
-        const service = get_service(isInfo
-        ? ctx.query.service
-        : ctx.path.slice(results[1].length + 1),
-        );
-
-        // Invalid service
-        if (!service) {
-          break;
-        }
-
-        // Invalid post request
-        if (!isInfo && ctx.get('content-type') !== `application/x-git-${service}-request`) {
-          break;
-        }
-
-        if (isInfo) {
-          content_type = content_type.replace('%s', service);
-        }
-
-        return {
-          content_type,
-          repository,
-          service,
-          type,
-        };
-      }
-    }
-
-    return {type: ServiceType.UNKNOWN, repository};
   }
 
   private set_cache_options() {
@@ -370,24 +308,4 @@ export interface MiddlewareOptions {
    * If set, then automatically accepts/rejects request if no action has been taken.
    */
   auto_deploy?: boolean;
-}
-
-function get_service(input: string): 'receive-pack' | 'upload-pack' {
-  if (!(input && input.startsWith('git-'))) {
-    return;
-  }
-
-  const service = input.slice(4);
-
-  if (valid_services.has(service)) {
-    // @ts-ignore
-    return service;
-  }
-}
-
-interface MatchResult {
-  content_type?: string;
-  repository?: string;
-  service?: 'upload-pack' | 'receive-pack';
-  type: ServiceType;
 }

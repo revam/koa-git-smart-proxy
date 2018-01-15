@@ -69,8 +69,8 @@ describe('GitStream', () => {
       // @ts-ignore
       source.service = service;
 
-      await source.wait();
-      await source.process('');
+      await source.process_input();
+      await source.accept('');
 
       await new Promise((next) => {
         source.pipe(through(
@@ -144,7 +144,7 @@ describe('UploadStream', () => {
 
     ok(source, 'should now have a source');
 
-    await source.wait();
+    await source.process_input();
 
     // Should have successfully parsed all want,
     expect(source.metadata.want).toMatchObject([
@@ -182,7 +182,7 @@ describe('ReceiveStream', () => {
 
     ok(source, 'should now have a source');
 
-    await source.wait();
+    await source.process_input();
 
     expect(source.metadata.ref.path).toBe('refs/heads/maint');
     expect(source.metadata.ref.name).toBe('maint');
@@ -213,9 +213,15 @@ describe('ReceiveStream', () => {
 
     ok(source, 'should now have a source');
 
-    await source.wait();
+    await source.process_input();
 
-    await source.process('');
+    await source.accept('');
+  });
+});
+
+describe('match', () => {
+  it('should provide basic info for request', async(done) => {
+    done();
   });
 });
 
