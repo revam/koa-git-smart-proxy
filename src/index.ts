@@ -10,9 +10,9 @@ import { promisify } from 'util';
 import { createGunzip } from 'zlib';
 // from library
 import {
+  GitBasePack,
   GitCommand,
   GitMetadata,
-  GitBasePack.
   match,
   ReceivePack,
   RequestStatus,
