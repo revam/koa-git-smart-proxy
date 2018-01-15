@@ -37,14 +37,15 @@ export class GitSmartProxy {
 
   // @ts-ignore suppress error [1166]
   private [SymbolSource]?: GitBasePack;
-  private __exists?(repository: string): Promise<boolean>;
+  private __command: GitCommand;
   private __context: Context;
   private __service: ServiceType;
   private __status: RequestStatus = RequestStatus.PENDING;
   private __content_type: string;
 
   constructor(context: Context, command: GitCommand) {
-    const {content_type, service, repository, source} = match(command, {
+    const {content_type, service, repository, source} = match({
+      command,
       content_type: context.get('content-type'),
       method: context.method,
       path: context.path,
@@ -52,9 +53,9 @@ export class GitSmartProxy {
     });
 
     this.repository = repository;
+    this.__command = command;
     this.__content_type = content_type;
     this.__context = context;
-    this.__exists = exists.bind(null, command);
     this.__service = service;
 
     if (this.__service === ServiceType.UNKNOWN) {
@@ -179,7 +180,7 @@ export class GitSmartProxy {
       repo_path = this.repository;
     }
 
-    return this.__exists(repo_path);
+    return exists(command, repo_path);
   }
 
   public verbose(...messages: Array<string | Buffer>) {

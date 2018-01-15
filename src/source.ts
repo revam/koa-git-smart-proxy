@@ -372,6 +372,7 @@ export class Seperator extends Transform {
 }
 
 export interface MatchQuery {
+  command?: GitCommand;
   content_type?: string;
   method?: string;
   path?: string;
@@ -391,10 +392,10 @@ const valid_services = new Map<ServiceType, [string, RegExp]>([
   [ServiceType.PUSH, ['application/x-git-receive-pack-result', /^\/?(.*?)\/git-receive-pack$/]],
 ]);
 
-export function match(command: GitCommand, input: MatchQuery = {}): MatchResult {
+export function match(input: MatchQuery = {}): MatchResult {
   let repository: string;
 
-  if (input.method && input.path) {
+  if (input.method && input.path && input.command) {
     for (let [service, [content_type, regex]] of valid_services) {
       const results = regex.exec(input.path);
 
@@ -431,12 +432,12 @@ export function match(command: GitCommand, input: MatchQuery = {}): MatchResult 
         const source = service_name === 'upload-pack'
         // Upload pack
         ? new UploadPack({
-            command,
+            command: input.command,
             has_input,
           })
         // Receive pack
         : new ReceivePack({
-            command,
+            command: input.command,
             has_input,
           });
 
