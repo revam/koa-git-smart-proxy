@@ -27,19 +27,25 @@ interface CreateSourceOptions {
   Pack: typeof GitBasePack;
 }
 
+const git_command = (r, c, a = []) => spawn('git', [c, ...a, '.'], {cwd: r});
+
+function create_command(input?: Writable, output?: Readable): GitCommand {
+  if (!(output && output.readable)) {
+    output = through();
+  }
+
+  if (!(input && input.writable)) {
+    input = through();
+  }
+
+  const stderr = through();
+
+  return (c, r, a) => ({stdout: output, stdin: input, stderr});
+}
+
 function create_source({command, input, output, messages, has_input, Pack}: CreateSourceOptions) {
   if (!command) {
-    if (!(output && output.readable)) {
-      output = through();
-    }
-
-    if (!(input && input.writable)) {
-      input = through();
-    }
-
-    const stderr = through();
-
-    command = (c, r, a) => ({stdout: output, stdin: input, stderr});
+    command = create_command(input, output);
   }
 
   const source = new Pack({
@@ -91,8 +97,6 @@ describe('GitBasePack', () => {
   });
 
   it('should be able to check if given repo is a valid one.', async(done) => {
-    const command = (r, c, a = []) => spawn('git', [c, ...a, '.'], {cwd: r});
-
     // Create temp folder
     const repos = directory();
 
@@ -101,21 +105,21 @@ describe('GitBasePack', () => {
 
     await create_non_repo(test1);
 
-    ok(!await exists(command, test1), 'should not exist');
+    ok(!await exists(git_command, test1), 'should not exist');
 
     // Test case 2: Non-init. repo
     const test2 = resolve(repos, 'test2');
 
     await create_repo(test2);
 
-    ok(await exists(command, test2), 'should exist, though no log');
+    ok(await exists(git_command, test2), 'should exist, though no log');
 
     // Test case 3: Init. repo with commit
     const test3 = resolve(repos, 'test3');
 
     await create_bare_repo(test3);
 
-    ok(await exists(command, test3), 'should exist');
+    ok(await exists(git_command, test3), 'should exist');
 
     done();
   }, 10000);
@@ -217,6 +221,20 @@ describe('ReceivePack', () => {
     await source.process_input();
 
     await source.accept('');
+  });
+});
+
+describe('Seperator', () => {
+  it('should seperate a normal input buffer', async(done) => {
+    done();
+  });
+
+  it('should combine with next buffer when missing data (underflow)', async(done) => {
+    done();
+  });
+
+  it('should cut the rest of current buffer when no match can be made (overflow)', async(done) => {
+    done();
   });
 });
 
