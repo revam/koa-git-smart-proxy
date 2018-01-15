@@ -1,5 +1,3 @@
-// tslint:disable no-implicit-dependencies
-
 // from packages
 import { ok } from 'assert';
 import { spawn } from 'child_process';

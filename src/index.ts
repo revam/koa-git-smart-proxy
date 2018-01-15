@@ -3,10 +3,10 @@ import { spawn } from 'child_process';
 import { exists } from 'fs';
 import { IncomingHttpHeaders, OutgoingHttpHeaders } from 'http';
 import * as HttpCodes from 'http-status';
+import { Context, Middleware } from 'koa';
 import { resolve } from 'path';
-import { promisify } from 'util';
-import { Context, Middleware } from 'koa'; // tslint:disable-line
 import { Readable, Writable } from 'stream';
+import { promisify } from 'util';
 import { createGunzip } from 'zlib';
 // from library
 import { GitCommand, GitMetadata, ReceivePack, Seperator, UploadPack } from './source';
