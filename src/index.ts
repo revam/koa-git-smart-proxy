@@ -38,7 +38,7 @@ export class GitSmartProxy {
   private __command: GitCommand;
   private __context: Context;
   private __service: ServiceType;
-  private __status: RequestStatus = RequestStatus.PENDING;
+  private __status: RequestStatus;
   private __content_type: string;
 
   constructor(context: Context, command: GitCommand) {
@@ -55,6 +55,7 @@ export class GitSmartProxy {
     this.__content_type = content_type;
     this.__context = context;
     this.__service = service;
+    this.__status = RequestStatus.PENDING;
 
     if (this.__service === ServiceType.UNKNOWN) {
       return this;
@@ -178,7 +179,7 @@ export class GitSmartProxy {
       repo_path = this.repository;
     }
 
-    return exists(command, repo_path);
+    return exists(this.__command, repo_path);
   }
 
   public verbose(...messages: Array<string | Buffer>) {
