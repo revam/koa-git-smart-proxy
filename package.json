@@ -1,6 +1,6 @@
 {
   "name": "koa-git-smart-proxy",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A proxy library for custom git deploy logic made for koa.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
