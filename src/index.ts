@@ -269,7 +269,7 @@ export function middleware(options?: MiddlewareOptions) {
 }
 
 export function create(context: Context, command: GitCommand) {
-  return GitSmartProxy.create(context, command)
+  return GitSmartProxy.create(context, command);
 }
 
 export interface MiddlewareOptions {
