@@ -388,7 +388,7 @@ Request stauts with values.
 - `REJECTED` (2)
   Request was rejected.
 
-### **GitMetadata** (interace) (typescript only export)
+### **GitMetadata** (interface) (typescript only export)
 
 Request metadata. Only available for pull/push services.
 
