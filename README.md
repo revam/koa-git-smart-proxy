@@ -48,6 +48,10 @@ Return a promise for the instance.
 - \<[Promise](#GitSmartProxy)>
   A promise that resolves to a new instance of [`GitSmartProxy`](#GitSmartProxy).
 
+### See also
+
+- [GitSmartProxy.create](#GitSmartProxy.create)
+
 #### Usage example
 
 Bare usage.
@@ -107,18 +111,67 @@ Creates a middleware attaching a new instance to context.
 - \<[Function](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)>
   A koa middleware function.
 
+### See also
+
+- [GitSmartProxy.middleware](#GitSmartProxyMiddleware)
+
 #### Usage examples
 
-Bare usage.
+Bare usage (with auto deploy).
 
 ```js
 const { createServer } = require('http');
 const koa =  require('koa');
 const { middleware } = require('koa-git-smart-proxy');
 
+const {
+  GIT_ROOT_FOLDER: root_folder = '/data/repos',
+} = process.env;
+
 const app = new koa;
 
-app.use(middleware({auto_deploy: true}));
+app.use(middleware({
+  auto_deploy: true,
+  git: root_folder,
+}));
+
+const server = createServer(app.callback());
+
+server.listen(3000, () => console.log('listening on port 3000'));
+```
+
+Bare usage (without auto deploy).
+
+```js
+const { createServer } = require('http');
+const koa =  require('koa');
+const { middleware } = require('koa-git-smart-proxy');
+
+const {
+  GIT_ROOT_FOLDER: root_folder = '/data/repos',
+} = process.env;
+
+const app = new koa;
+
+app.use(middleware({
+  git: root_folder,
+}));
+
+app.use(async(ctx) => {
+  const {proxy} = ctx.state;
+
+  // Not found
+  if (!await proxy.exists()) {
+    return proxy.reject(404);
+  }
+
+  // Forbidden
+  if (proxy.service === ServiceType.UNKNOWN) {
+    return proxy.reject();
+  }
+
+  return proxy.accept();
+});
 
 const server = createServer(app.callback());
 
@@ -256,7 +309,30 @@ Creates a middleware attaching a new instance to context.
 
 #### Usage examples
 
-Bare usage.
+Bare usage (with auto deploy).
+
+```js
+const { createServer } = require('http');
+const koa =  require('koa');
+const { GitSmartProxy } = require('koa-git-smart-proxy');
+
+const {
+  GIT_ROOT_FOLDER: root_folder = '/data/repos',
+} = process.env;
+
+const app = new koa;
+
+app.use(GitSmartProxy.middleware({
+  auto_deploy: true,
+  git: root_folder,
+}));
+
+const server = createServer(app.callback());
+
+server.listen(3000, () => console.log('listening on port 3000'));
+```
+
+Bare usage (without auto deploy).
 
 ```js
 const { createServer } = require('http');
@@ -265,7 +341,25 @@ const { GitSmartProxy } = require('koa-git-smart-proxy');
 
 const app = new koa;
 
-app.use(GitSmartProxy.middleware({auto_deploy: true}));
+app.use(GitSmartProxy.middleware({
+  git: root_folder,
+}));
+
+app.use(async(ctx) => {
+  const {proxy} = ctx.state;
+
+  // Not found
+  if (!await proxy.exists()) {
+    return proxy.reject(404);
+  }
+
+  // Forbidden
+  if (proxy.service === ServiceType.UNKNOWN) {
+    return proxy.reject();
+  }
+
+  return proxy.accept();
+});
 
 const server = createServer(app.callback());
 
