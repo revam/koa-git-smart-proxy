@@ -10,7 +10,9 @@ npm install --save koa-git-smart-proxy
 
 ## Why?
 
-Looking at existing git deployment libraries for node, not many have good compatibility with [koa](https://www.npmjs.com/package/koa). So instead of creating a compatibility layer for my application, I created a new library made just for [koa](https://www.npmjs.com/package/koa).
+Looking at existing git deployment libraries for node, not many have good compatibility with [koa](https://www.npmjs.com/package/koa).So instead of creating a compatibility layer for my
+application, I created a new library made for [koa](https://www.npmjs.com/package/koa).
+All core functinality now lives in a [seperate package](https://www.npmjs.com/package/git-smart-proxy-core).
 
 I took insparation from existing packages for node;
 [pushover](https://github.com/substack/pushover),

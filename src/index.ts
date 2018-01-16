@@ -1,12 +1,4 @@
-// from packages
 import { spawn } from 'child_process';
-import * as HttpCodes from 'http-status';
-import { Context, Middleware } from 'koa';
-import { resolve } from 'path';
-import { Readable, Writable } from 'stream';
-import { promisify } from 'util';
-import { createGunzip } from 'zlib';
-// from library
 import {
   exists,
   GitBasePack,
@@ -17,7 +9,13 @@ import {
   RequestStatus,
   Seperator,
   ServiceType,
-} from './source';
+} from 'git-smart-proxy-core';
+import * as HttpCodes from 'http-status';
+import { Context, Middleware } from 'koa';
+import { resolve } from 'path';
+import { Readable, Writable } from 'stream';
+import { promisify } from 'util';
+import { createGunzip } from 'zlib';
 
 // See https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
 
@@ -27,7 +25,7 @@ export {
   GitMetadata,
   ServiceType,
   RequestStatus,
-} from './source';
+} from 'git-smart-proxy-core';
 
 export const SymbolSource = Symbol('source');
 
