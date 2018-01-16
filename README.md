@@ -36,17 +36,21 @@ Return a promise for the instance.
 #### Parameters
 
 - `context`
-  \<[koa.Context](#Context)>
+  \<[koa.Context](http://koajs.com/#context)>
   Koa context.
 
 - `command`
-  \<[GitCommand](#GitCommand)>
+  \<[GitCommand](#gitcommand-type-typescript-only-export)>
   Git RPC handler.
 
 #### Returns
 
-- \<[Promise](#GitSmartProxy)>
-  A promise that resolves to a new instance of [`GitSmartProxy`](#GitSmartProxy).
+- \<[Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)>
+  A promise that resolves to a new instance of [`GitSmartProxy`](#gitsmartproxy-class-export).
+
+### See also
+
+- [GitSmartProxy.create](#gitsmartproxycreate-context-command--static-method)
 
 #### Usage example
 
@@ -99,7 +103,7 @@ Creates a middleware attaching a new instance to context.
 #### Parameters
 
 - `options`
-  \<[MiddlewareOptions](#MiddlewareOptions)>
+  \<[MiddlewareOptions](#middlewareoptions-interface-typescript-only-export)>
   Middleware options.
 
 #### Returns
@@ -107,18 +111,67 @@ Creates a middleware attaching a new instance to context.
 - \<[Function](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function)>
   A koa middleware function.
 
+### See also
+
+- [GitSmartProxy.middleware](#gitsmartproxymiddleware-options--static-method)
+
 #### Usage examples
 
-Bare usage.
+Bare usage (with auto deploy).
 
 ```js
 const { createServer } = require('http');
 const koa =  require('koa');
 const { middleware } = require('koa-git-smart-proxy');
 
+const {
+  GIT_ROOT_FOLDER: root_folder = '/data/repos',
+} = process.env;
+
 const app = new koa;
 
-app.use(middleware({auto_deploy: true}));
+app.use(middleware({
+  auto_deploy: true,
+  git: root_folder,
+}));
+
+const server = createServer(app.callback());
+
+server.listen(3000, () => console.log('listening on port 3000'));
+```
+
+Bare usage (without auto deploy).
+
+```js
+const { createServer } = require('http');
+const koa =  require('koa');
+const { middleware } = require('koa-git-smart-proxy');
+
+const {
+  GIT_ROOT_FOLDER: root_folder = '/data/repos',
+} = process.env;
+
+const app = new koa;
+
+app.use(middleware({
+  git: root_folder,
+}));
+
+app.use(async(ctx) => {
+  const {proxy} = ctx.state;
+
+  // Not found
+  if (!await proxy.exists()) {
+    return proxy.reject(404);
+  }
+
+  // Forbidden
+  if (proxy.service === ServiceType.UNKNOWN) {
+    return proxy.reject();
+  }
+
+  return proxy.accept();
+});
 
 const server = createServer(app.callback());
 
@@ -127,22 +180,24 @@ server.listen(3000, () => console.log('listening on port 3000'));
 
 ### **GitSmartProxy** (class) (export)
 
-*Note:* When creating new instances, use static method [create](#GitSmartProxy.create).
+*Note:* When creating new instances, use exported function
+[create](#create-context-command--function-export)
+or static method [create](#gitsmartproxycreate-context-command--static-method).
 
 #### Public properties
 
 - `service`
-  \<[ServiceType](#ServiceType)>
+  \<[ServiceType](#servicetype-enum-export)>
   Service type.
   Read-only.
 
 - `status`
-  \<[RequestStatus](#RequestStatus)>
+  \<[RequestStatus](#requeststatus-enum-export)>
   Request status.
   Read-only.
 
 - `metadata`
-  \<[GitMetadata](#GitMetadata)>
+  \<[GitMetadata](#gitmetadata-interface-typescript-only-export)>
   Request metadata.
 
 - `repository`
@@ -151,19 +206,19 @@ server.listen(3000, () => console.log('listening on port 3000'));
 
 #### Public static methods
 
-- [create](#create)
+- [create](#gitsmartproxycreate-context-command--static-method)
 
-- [middleware](#middleware)
+- [middleware](#gitsmartproxymiddleware-options--static-method)
 
 #### Public instance methods
 
-- [accept](#accept)
+- [accept](#gitsmartproxyaccept-alternative_path--instance-method)
 
-- [reject](#reject)
+- [reject](#gitsmartproxyreject-status-reason--instance-method)
 
-- [exists](#exists)
+- [exists](#gitsmartproxyexists-alternative_path--instance-method)
 
-- [verbose](#verbose)
+- [verbose](#gitsmartproxyverbose-messages--instance-method)
 
 ### **GitSmartProxy.create(** context, command **)** (static method)
 
@@ -175,21 +230,21 @@ Return a promise for the instance.
 #### Parameters
 
 - `context`
-  \<[koa.Context](#Context)>
+  \<[koa.Context](http://koajs.com/#context)>
   Koa context.
 
 - `command`
-  \<[GitCommand](#GitCommand)>
+  \<[GitCommand](#gitcommand-type-typescript-only-export)>
   Git RPC handler.
 
 #### Returns
 
-- \<[Promise](#GitSmartProxy)>
-  A promise that resolves to a new instance of [`GitSmartProxy`](#GitSmartProxy).
+- \<[Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)>
+  A promise that resolves to a new instance of [`GitSmartProxy`](#gitsmartproxy-class-export).
 
 #### See also
 
-- [create](#create)
+- [create](#create-context-command--function-export)
 
 #### Usage example
 
@@ -242,7 +297,7 @@ Creates a middleware attaching a new instance to context.
 #### Parameters
 
 - `options`
-  \<[MiddlewareOptions](#MiddlewareOptions)>
+  \<[MiddlewareOptions](#middlewareoptions-interface-typescript-only-export)>
   Middleware options.
 
 #### Returns
@@ -252,11 +307,34 @@ Creates a middleware attaching a new instance to context.
 
 #### See also
 
-- [middleware](#middlware)
+- [middleware](#middleware-options--function-export)
 
 #### Usage examples
 
-Bare usage.
+Bare usage (with auto deploy).
+
+```js
+const { createServer } = require('http');
+const koa =  require('koa');
+const { GitSmartProxy } = require('koa-git-smart-proxy');
+
+const {
+  GIT_ROOT_FOLDER: root_folder = '/data/repos',
+} = process.env;
+
+const app = new koa;
+
+app.use(GitSmartProxy.middleware({
+  auto_deploy: true,
+  git: root_folder,
+}));
+
+const server = createServer(app.callback());
+
+server.listen(3000, () => console.log('listening on port 3000'));
+```
+
+Bare usage (without auto deploy).
 
 ```js
 const { createServer } = require('http');
@@ -265,7 +343,25 @@ const { GitSmartProxy } = require('koa-git-smart-proxy');
 
 const app = new koa;
 
-app.use(GitSmartProxy.middleware({auto_deploy: true}));
+app.use(GitSmartProxy.middleware({
+  git: root_folder,
+}));
+
+app.use(async(ctx) => {
+  const {proxy} = ctx.state;
+
+  // Not found
+  if (!await proxy.exists()) {
+    return proxy.reject(404);
+  }
+
+  // Forbidden
+  if (proxy.service === ServiceType.UNKNOWN) {
+    return proxy.reject();
+  }
+
+  return proxy.accept();
+});
 
 const server = createServer(app.callback());
 
@@ -349,10 +445,10 @@ Side-loades verbose messages to client.
 #### Parameters
 
 - `messages`
-  \<[Array\<String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)>
-  \<[Iterable\<String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols)> |
-  \<[IterableIterator\<String>](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols)>
-  Messages to side-load.
+  \<[Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)>
+  [`String`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)
+  or [`Buffer`](https://nodejs.org/dist/latest/docs/api/buffer.html#buffer_class_buffer)
+  messages to side-load.
 
 ### **ServiceType** (enum) (export)
 
@@ -388,7 +484,7 @@ Request stauts with values.
 - `REJECTED` (2)
   Request was rejected.
 
-### **GitMetadata** (interace) (typescript only export)
+### **GitMetadata** (interface) (typescript only export)
 
 Request metadata. Only available for pull/push services.
 
@@ -442,8 +538,8 @@ Middleware options.
 
 - `git`
   \<[string](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)> |
-  \<[GitExecutableOptions](#GitExecutableOptions)> |
-  \<[GitCommand](#GitCommand)>
+  \<[GitExecutableOptions](#gitexecutableoptions-interface-typescript-only-export)> |
+  \<[GitCommand](#gitcommand-type-typescript-only-export)>
   Can either be a string to the local root folder, a custom handler or an options object.
   Defaults to `process.cwd()`.
 
@@ -477,7 +573,7 @@ A function returning stdin/stdout of a spawned git process.
 
 #### Returns
 
-- \<[GitCommandResult](#GitCommandResult)>
+- \<[GitCommandResult](#gitcommandresult-interface-typescript-only-export)>
   An object containing stdin/stdout.
 
 ### **GitCommandResult** (interface) (typescript only export)
@@ -500,7 +596,7 @@ An object containing stdin/stdout of a git process.
 
 ### **GitExecutableOptions** (interface) (typescript only export)
 
-Options for customizing the default [GitCommand](#GitCommand).
+Options for customizing the default [`GitCommand`](#gitcommand-type-typescript-only-export).
 
 #### Properties
 
