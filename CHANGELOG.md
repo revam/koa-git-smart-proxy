@@ -14,10 +14,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 
-- Changed ref metadata. (Combined all into one.)
-- Set cwd before executing commands (in default handler).
-- Internal class naming. (in src/source.ts)
-- Tweaked middleware and comments.
+- Updated README.md to reflect changes.
+- Internal changes.
+- Changed metadata. (Combined all ref data into one.)
+- Tweaked middleware.
 
 ### Fixed
 
@@ -27,7 +27,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Removed
 
-- Removed unused code in middleware example.
 - Removed unused helper functions.
 
 ## 0.0.1 - 2018-01-12

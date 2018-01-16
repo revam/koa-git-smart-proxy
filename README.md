@@ -22,195 +22,75 @@ gems for ruby;
 and the
 [http protocol documentation for git](https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt).
 
-## Usage
+## API
 
-### Basic usage (without auto-deployment)
+### **create(** context, command **)** (function) (export)
+
+*Note:* You can also use the static class method `GitSmartProxy.middleware`.
+
+Create a new GitSmartProxy instance, and wait till it's ready.
+Return a promise for the instance.
+
+#### Parameters
+
+- `context`
+  \<[koa.Context](#Context)>
+  Koa context.
+
+- `command`
+  \<[GitCommand](#GitCommand)>
+  Git RPC handler.
+
+#### Returns
+
+- \<[Promise](#GitSmartProxy)>
+  A promise that resolves to a new instance of [`GitSmartProxy`](#GitSmartProxy).
+
+#### Usage example
+
+Bare usage.
 
 ```js
+const { spawn } = require('child_process');
+const { createServer } = require('http');
+const koa =  require('koa');
+const { create, ServiceType } = require('koa-git-smart-proxy');
+const { resolve } = require('path');
 
-const koa = require('koa');
-const HttpStatus = ('http-status');
-const { middleware, ServiceType } = require('koa-git-smart-proxy');
+function command(repo_path, command, args = []) {
+  const full_path = resolve(r);
 
-// Path to git executable
-const executable_path = 'git';
-// Repositories root folder
-const root_folder = process.env.GIT_ROOT;
+  return spawn('git', [command, ...args, '.'], {
+    cwd: full_path,
+  });
+}
 
-// Create app
 const app = new koa;
 
-// Attach proxy
-app.use(middleware({
-  git: root_folder,
-}));
-
-// Git services
-app.use(ctx => {
-  const {proxy} = ctx.state;
+app.use(async(ctx) => {
+  const service = await create(ctx, command);
 
   // Not found
-  if (!proxy.repository) {
-    return proxy.reject(HttpStatus.NOT_FOUND);
+  if (!await service.exists()) {
+    return service.reject(404);
   }
 
   // Forbidden
-  if (proxy.service=!== ServiceType.UNKNOWN) {
-    return proxy.reject(HttpStatus.FORBIDDEN);
+  if (service.service === ServiceType.UNKNOWN) {
+    return service.reject();
   }
 
-  // Accept
-  return proxy.accept();
+  return service.accept();
 });
 
+const server = createServer(app.callback());
+
+server.listen(3000, () => console.log('listening on port 3000'));
 ```
-
-### Auto-deployment
-
-Auto deployment accepts or rejects a request if no action is taken further down the middleware chain. The option is **off by default**.
-
-Set the `auto_deploy` option to `true` to accept, or `false` to reject not handled requests. It also has a default reject logic independent of the flag value, and works simular to the below code.
-
-```js
-// Not found
-if (!proxy.repository) {
-  return proxy.reject(404);
-}
-
-// Forbidden
-if (proxy.service !== ServiceType.UNKNOWN) {
-  return proxy.reject(403);
-}
-
-// Accept/Reject
-return auto_deploy? proxy.accept() : proxy.reject();
-```
-
-So if you set `auto_deploy` to `true`, you can shrink the basic example down to:
-
-```js
-const koa = require('koa');
-const { middleware } = require('koa-git-smart-proxy');
-
-// Repositories root folder
-const root_folder = process.env.GIT_ROOT;
-
-// Create app
-const app = new koa;
-
-// Attach proxy and respond to requests
-app.use(middleware({git: root_folder, auto_deploy: true}));
-```
-
-### Custom authentication/authorization example
-
-You got a user system where you want to restrict some services?
-In the below example, we authenticate with HTTP Basic Authenticatoin and
-check if both repo exist and service is available for user (or non-user).
-
-```js
-const koa = require('koa');
-const passport = require('koa-passport');
-const HttpStatus = ('http-status');
-const { match } = require('koa-match');
-const { middleware, ServiceType } = require('koa-git-smart-proxy');
-const Models = require('./models');
-
-// Get root folder
-const root_folder = process.env.GIT_ROOT;
-
-// Create app
-const app = new koa;
-
-/* ... some more logic ... */
-
-// Git services
-app.use(match({
-  path: ':username/:repository.git/:path(.*)?',
-  handlers: [
-    // Authenticate client
-    passport.initialize(),
-    passport.authenticate('basic'),
-
-    // Get repository
-    async(ctx, next) => {
-      const {username, repository} = ctx.params;
-
-      const repo = await Models.Repository.findByOwnerAndName(username, repository);
-
-      if (repo) {
-        ctx.state.repo = repo;
-      }
-
-      return next();
-    },
-
-    // Attach proxy
-    middleware({git: {root_folder} }),
-
-    // Validation
-    async(ctx) => {
-      const {proxy, repo, user} = ctx.state;
-      const {username, repository, path} = ctx.params;
-
-      // Redirect
-      if (!path) {
-        return ctx.redirect('back', `/${username}/${repository}/`);
-      }
-
-      // Not found
-      if (!repo) {
-        return proxy.reject(HttpStatus.NOT_FOUND);
-      }
-
-      // Unknown service
-      if (proxy.service === ServiceType.UNKNOWN) {
-        return proxy.reject(HttpStatus.FORBIDDEN);
-      }
-
-      // Unautrorized access
-      if (!await repo.checkService(proxy.service, user)) {
-        ctx.set('www-authenticate', `Basic`);
-        return proxy.reject(HttpStatus.UNAUTHORIZED);
-      }
-
-      // Repos are stored differently than url structure.
-      const repo_path = await repo.get_path();
-
-      // #accept can be supplied with an absolute path
-      // or a path relative to root_folder.
-      return proxy.accept(repo_path);
-    }
-  ]
-}));
-
-/* ... maybe some more logic? ... */
-```
-
-### Custom git handler
-
-We only need a connection to stdin and stdout from the git process. How you spawn is up to you.
-
-```js
-const custom_command = function git_input_output(repository, command, command_arguments) {
-  let output; // Readable stream
-  let input; // Writable stream
-
-  /* some magical logic to set input/output */
-
-  return {output, input};
-}
-
-app.use(middleware({
-  git: custom_command,
-}));
-```
-
-## API
 
 ### **middleware(** [options] **)** (function) (export)
 
-*Note:* You can also use the exported `GitSmartProxy.middleware` static class method.
+*Note:* You can also use the static class method `GitSmartProxy.middleware`.
 
 Creates a middleware attaching a new instance to context.
 
@@ -245,18 +125,7 @@ server.listen(3000, () => console.log('listening on port 3000'));
 
 ### **GitSmartProxy** (class) (export)
 
-*Note:* It is adviced against using the `new` keyword when creating new instances.
-Instead use [create](#GitSmartProxy.create).
-
-#### Constructor parameters
-
-- `context`
-  \<[koa.Context](#Context)>
-  Koa context.
-
-- `command`
-  \<[GitCommand](#GitCommand)>
-  Git RPC handler.
+*Note:* When creating new instances, use static method [create](#GitSmartProxy.create).
 
 #### Public properties
 
@@ -280,21 +149,23 @@ Instead use [create](#GitSmartProxy.create).
 
 #### Public static methods
 
-- `create`
+- [create](#create)
 
-- `middleware`
+- [middleware](#middleware)
 
 #### Public instance methods
 
-- `accept`
+- [accept](#accept)
 
-- `reject`
+- [reject](#reject)
 
-- `exists`
+- [exists](#exists)
 
-- `verbose`
+- [verbose](#verbose)
 
 ### **GitSmartProxy.create(** context, command **)** (static method)
+
+*Note:* You can also use the exported `create` function.
 
 Create a new GitSmartProxy instance, and wait till it's ready.
 Return a promise for the instance.
@@ -314,20 +185,28 @@ Return a promise for the instance.
 - \<[Promise](#GitSmartProxy)>
   A promise that resolves to a new instance of [`GitSmartProxy`](#GitSmartProxy).
 
+#### See also
+
+- [create](#create)
+
 #### Usage example
 
 Bare usage.
 
 ```js
 const { spawn } = require('child_process');
-const { exists } = require('fs');
 const { createServer } = require('http');
 const koa =  require('koa');
 const { GitSmartProxy, ServiceType } = require('koa-git-smart-proxy');
 const { resolve } = require('path');
-const { promisify } = require('util');
 
-const command = (r, c, ar = []) => spawn('git', [c, ...ar, resolve(r)], {cwd: resolve(r)});
+function command(repo_path, command, args = []) {
+  const full_path = resolve(r);
+
+  return spawn('git', [command, ...args, '.'], {
+    cwd: full_path,
+  });
+}
 
 const app = new koa;
 
@@ -335,7 +214,7 @@ app.use(async(ctx) => {
   const service = await GitSmartProxy.create(ctx, command);
 
   // Not found
-  if (!(await service.exists())) {
+  if (!await service.exists()) {
     return service.reject(404);
   }
 
@@ -371,10 +250,6 @@ Creates a middleware attaching a new instance to context.
 
 #### See also
 
-- [Usage](#Usage)
-
-- [GitSmartProxy.create](#GitSmartProxy.create)
-
 - [middleware](#middlware)
 
 #### Usage examples
@@ -403,16 +278,7 @@ Accept the request for provided service.
 
 - `alternative_path`
   \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
-  Alternative path where repository is stored.
-
-#### Returns
-
-- \<[Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)>
-  An empty promise that resolves when processing is done.
-
-### **GitSmartProxy#reject()** (instance method)
-
-Reject request to service. Can be optionally supplied with a status code and/or reason.
+  Optional alternative path where repository is stored.
 
 #### Returns
 
@@ -421,13 +287,14 @@ Reject request to service. Can be optionally supplied with a status code and/or 
 
 ### **GitSmartProxy#reject(** [status,] [reason] **)** (instance method)
 
-Reject request to service. Supplied with a status code and an optional reason.
+Reject request to service. Optionally supplied with status code and reason.
 
 #### Parameters
 
 - `status`
   \<[Number](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number)>
   HTTP Status code to set for response.
+  Defaults to `403`.
 
 - `reason`
   \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
@@ -441,27 +308,32 @@ Reject request to service. Supplied with a status code and an optional reason.
 
 ### **GitSmartProxy#reject(** reason, [status] **)** (instance method)
 
-Reject request to service. Supplied with a reason and an optional status code.
+Reject request to service. Supplied with a reason and optionally a status code.
 
 #### Parameters
 
 - `reason`
   \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
   Rejection reason.
-  Defaults to text for status code.
 
 - `status`
   \<[Number](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number)>
   HTTP Status code to set for response.
+  Defaults to `403`.
 
 #### Returns
 
 - \<[Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)>
   An empty promise that resolves when processing is done.
 
-### **GitSmartProxy#exists()** (instance method)
+### **GitSmartProxy#exists( [alternative_path] )** (instance method)
 
 Checks if repository exists.
+
+#### Parameters
+
+- \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  Optional alternative path where repository is stored.
 
 #### Returns
 
@@ -587,6 +459,94 @@ Options for customizing the default [GitCommand](#GitCommand).
   \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
   A path leading to the projects root folder. Will be resolved.
   Defaults to `process.cwd()`.
+
+## Specialized Usage
+
+### Custom authentication/authorization example
+
+In the below example, we statelessly authenticate with HTTP Basic Authenticatoin
+and check if both repo exist and service is available for user (or guest).
+
+```js
+const koa = require('koa');
+const passport = require('koa-passport');
+const HttpStatus = ('http-status');
+const { match } = require('koa-match');
+const { middleware, ServiceType } = require('koa-git-smart-proxy');
+const Models = require('./models');
+
+// Get repository root folder
+const {
+  REPOS_ROOT_FOLDER: root_folder = '/data/repos',
+} = process.env;
+
+// Create app
+const app = new koa;
+
+// Git services (Info, pull & push)
+app.use(match({
+  path: ':username/:repository.git/:path(.*)?',
+  handlers: [
+    // Authenticate client
+    passport.initialize(),
+    passport.authenticate('basic'),
+
+    // Get repository
+    async(ctx, next) => {
+      const {username, repository} = ctx.params;
+
+      const repo = await Models.Repository.findByOwnerAndName(username, repository);
+
+      if (repo) {
+        ctx.state.repo = repo;
+      }
+
+      return next();
+    },
+
+    // Attach proxy
+    middleware({git: {root_folder} }),
+
+    // Validation
+    async(ctx) => {
+      const {proxy, repo, user} = ctx.state;
+      const {username, repository, path} = ctx.params;
+
+      // Redirect
+      if (!path) {
+        return ctx.redirect('back', `/${username}/${repository}/`);
+      }
+
+      // Not found
+      if (!repo) {
+        return proxy.reject(HttpStatus.NOT_FOUND);
+      }
+
+      // Unknown service
+      if (proxy.service === ServiceType.UNKNOWN) {
+        return proxy.reject();
+      }
+
+      // Unautrorized access
+      if (!await repo.checkService(proxy.service, user)) {
+        ctx.set('www-authenticate', `Basic`);
+        return proxy.reject(HttpStatus.UNAUTHORIZED);
+      }
+
+      // Repos are stored differently than url structure.
+      const repo_path = repo.get_path();
+
+      // #accept can be supplied with an absolute path
+      // or a path relative to root_folder.
+      return proxy.accept(repo_path);
+    }
+  ]
+}));
+
+const server = createServer(app.callback());
+
+server.listen(3000, () => console.log('listening on port 3000'));
+```
 
 ## Typescript
 
