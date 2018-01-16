@@ -1,6 +1,6 @@
 {
   "name": "koa-git-smart-proxy",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "A proxy library for custom git deploy logic made for koa.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -42,13 +42,15 @@
     "del-cli": "^1.1.0",
     "into-stream": "^3.1.0",
     "jest": "^22.0.4",
+    "koa": "^2.4.1",
+    "tempy": "^0.2.1",
     "through": "^2.3.8",
     "ts-jest": "^22.0.0",
     "tslint": "^5.8.0",
     "typescript": "^2.6.2"
   },
   "dependencies": {
-    "git-side-band-message": "0.0.3",
+    "git-smart-proxy-core": "^1.0.1",
     "http-status": "^1.0.1"
   },
   "jest": {
