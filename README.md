@@ -2,7 +2,7 @@
 
 A proxy library for custom git deploy logic made for koa.
 
-**Note:** The api is currently not *fully* tested.
+**Note:** The api is currently not fully tested and may be unstable. Working on tests.
 
 ## Install
 

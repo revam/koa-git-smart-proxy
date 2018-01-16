@@ -7,15 +7,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.0.0] - 2018-01-16
+
 ### Added
 
-- Missing usage example for `middlware( [options] )`.
-- Missing instance method `GitSmartProxy#exists( [alternative_path] )`.
+- Missing usage examples.
+- Missing method `GitSmartProxy#exists([alternative_path])`
 
 ### Changed
 
-- Updated README.md to reflect changes.
-- Internal changes.
+- Using package `'git-smart-proxy-core'`. Removed `source.ts`
+- Updated [README.md](./README.md) to reflect changes.
+- Internal overhaul, many changes to internal api.
 - Changed metadata. (Combined all ref data into one.)
 - Tweaked middleware.
 
@@ -27,13 +30,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Removed
 
-- Removed unused helper functions.
-
 ## 0.0.1 - 2018-01-12
 
 ### Added
 
 - Initial dev release. Still unstable.
 
-[Unreleased]: https://github.com/olivierlacan/keep-a-changelog/compare/v0.0.1...HEAD
-[0.0.2]: https://github.com/revam/git-koa-smart-proxy/compare/v0.0.1...v0.0.2
+[Unreleased]: https://github.com/olivierlacan/keep-a-changelog/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/revam/git-koa-smart-proxy/compare/v0.0.1...v1.0.0
