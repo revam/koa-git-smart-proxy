@@ -2,6 +2,8 @@
 
 A proxy library for custom git deploy logic made for koa.
 
+**Note:** The api is currently not *fully* tested.
+
 ## Install
 
 ```sh
@@ -386,6 +388,52 @@ Request stauts with values.
 - `REJECTED` (2)
   Request was rejected.
 
+### **GitMetadata** (interace) (typescript only export)
+
+Request metadata. Only available for pull/push services.
+
+### Properties
+
+- `want`
+  \<[Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)>
+  An array containing what the client want.
+  Pull only.
+
+- `have`
+  \<[Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)>
+  An array containing what the client have.
+  Pull only.
+
+- `ref`
+  \<[Object](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)>
+  Push only.
+
+  - `path`
+    \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+    Full reference path.
+
+  - `name`
+    \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+    Reference name
+
+  - `type`
+    \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+    Reference type.
+
+- `old_commit`
+  \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  Old commit.
+  Push only.
+
+- `new_commit`
+  \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  New commit
+  Push only.
+
+- `capebilities`
+  \<[Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)>
+  An array containing the capebilities client want/have.
+
 ### **MiddlewareOptions** (interface) (typescript only export)
 
 Middleware options.
@@ -409,17 +457,23 @@ Middleware options.
   Where to store instance in `Context.state`.
   Defaults to `'proxy'`.
 
-### **GitCommand()** (interface) (typescript only export)
+### **GitCommand** (type) (typescript only export)
 
 A function returning stdin/stdout of a spawned git process.
 
 #### Parameters
 
 - `repository`
+  \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  Repository name.
 
 - `command`
+  \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
+  Git command to execute.
 
 - `command_args`
+  \<[Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)>
+  An array of arguments to pass to git instance.
 
 #### Returns
 

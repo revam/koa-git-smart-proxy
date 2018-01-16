@@ -3,6 +3,7 @@ import {
   exists,
   GitBasePack,
   GitCommand,
+  GitCommandResult,
   GitMetadata,
   match,
   ReceivePack,
@@ -265,6 +266,10 @@ export class GitSmartProxy {
 
 export function middleware(options?: MiddlewareOptions) {
   return GitSmartProxy.middleware(options);
+}
+
+export function create(context: Context, command: GitCommand) {
+  return GitSmartProxy.create(context, command)
 }
 
 export interface MiddlewareOptions {
