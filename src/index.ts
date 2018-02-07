@@ -123,7 +123,8 @@ export class GitSmartProxy {
 
     if (!repo_path) {
       if (!this.repository) {
-        this.onError.dispatch(new Error(''));
+        this.onError.dispatch(new Error('Accepted unknown repository'));
+
         return;
       }
 
@@ -136,6 +137,7 @@ export class GitSmartProxy {
       await source.accept(repo_path);
     } catch (err) {
       this.onError.dispatch(err);
+
       return;
     }
 
@@ -199,6 +201,8 @@ export class GitSmartProxy {
   public async exists(repo_path?: string): Promise<boolean> {
     if (!repo_path) {
       if (!this.repository) {
+        this.onError.dispatch(new Error('Checking unknown repository'));
+
         return false;
       }
 
