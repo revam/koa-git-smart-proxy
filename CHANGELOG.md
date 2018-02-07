@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## Added
 
 - Signals ('onAccept', 'onReject', 'onError' & 'onFinal')
+- New option (boolean) 'throw_errors' in middleware.
 
 ## [1.0.1] - 2018-01-16
 

@@ -239,9 +239,7 @@ export class GitSmartProxy {
     return service;
   }
 
-  public static middleware(options: MiddlewareOptions = {}): Middleware {
-    const {key_name = 'proxy', auto_deploy} = options;
-
+  public static middleware({key_name = 'proxy', ...options}: MiddlewareOptions = {}): Middleware {
     let command: GitCommand;
     if ('function' === typeof options.git) {
       command = options.git;
@@ -274,12 +272,14 @@ export class GitSmartProxy {
       // Add proxy to context
       const proxy = context.state[key_name] = await GitSmartProxy.create(context, command);
 
-      proxy.onError.add((err) => context.throw(err));
+      if (options.throw_errors) {
+        proxy.onError.add((err) => context.throw(err));
+      }
 
       await next();
 
       // If auto_deploy is defined and request is still pending -> deploy
-      if (undefined !== auto_deploy && proxy.status === RequestStatus.PENDING) {
+      if (undefined !== options.auto_deploy && proxy.status === RequestStatus.PENDING) {
         // No repository -> Not found
         if (!(await proxy.exists())) {
           return proxy.reject(HttpCodes.NOT_FOUND);
@@ -291,7 +291,7 @@ export class GitSmartProxy {
         }
 
         // Accept or reject
-        return auto_deploy ? proxy.accept() : proxy.reject();
+        return options.auto_deploy ? proxy.accept() : proxy.reject();
       }
     };
   }
@@ -328,4 +328,8 @@ export interface MiddlewareOptions {
    * If set, then automatically accepts/rejects request if no action has been taken.
    */
   auto_deploy?: boolean;
+  /**
+   * Throw errors to context;
+   */
+  throw_errors?: boolean;
 }
