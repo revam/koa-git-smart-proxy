@@ -13,6 +13,7 @@ import {
 } from 'git-smart-proxy-core';
 import * as HttpCodes from 'http-status';
 import { Context, Middleware } from 'koa';
+import { Signal } from 'micro-signals';
 import { resolve } from 'path';
 import { Readable, Writable } from 'stream';
 import { promisify } from 'util';
@@ -33,6 +34,12 @@ export const SymbolSource = Symbol('source');
 export class GitSmartProxy {
   public repository?: string;
   public metadata: GitMetadata;
+
+  // Signals
+  public readonly onAccept: Signal<string>;
+  public readonly onReject: Signal<{reason: string; status: number}>;
+  public readonly onFinal: Signal<void>;
+  public readonly onError: Signal<Error>;
 
   // @ts-ignore suppress error [1166]
   private [SymbolSource]?: GitBasePack;
@@ -57,6 +64,12 @@ export class GitSmartProxy {
     this.__context = context;
     this.__service = service;
     this.__status = RequestStatus.PENDING;
+
+    // Signals
+    this.onAccept = new Signal();
+    this.onReject = new Signal();
+    this.onFinal = new Signal();
+    this.onError = new Signal();
 
     if (this.__service === ServiceType.UNKNOWN) {
       return this;
@@ -110,6 +123,8 @@ export class GitSmartProxy {
 
     if (!repo_path) {
       if (!this.repository) {
+        this.onError.dispatch(new Error('Accepted unknown repository'));
+
         return;
       }
 
@@ -118,7 +133,13 @@ export class GitSmartProxy {
 
     const source = this[SymbolSource];
 
-    await source.accept(repo_path);
+    try {
+      await source.accept(repo_path);
+    } catch (err) {
+      this.onError.dispatch(err);
+
+      return;
+    }
 
     const ctx = this.__context;
 
@@ -126,6 +147,9 @@ export class GitSmartProxy {
     ctx.type = this.__content_type;
     ctx.status = HttpCodes.OK;
     ctx.body = source;
+
+    this.onAccept.dispatch(repo_path);
+    this.onFinal.dispatch(undefined);
   }
 
   public async reject(): Promise<void>;
@@ -167,6 +191,9 @@ export class GitSmartProxy {
     ctx.type = 'text/plain';
     ctx.status = status;
     ctx.body = reason;
+
+    this.onReject.dispatch({reason, status});
+    this.onFinal.dispatch(undefined);
   }
 
   public async exists(): Promise<boolean>;
@@ -174,13 +201,21 @@ export class GitSmartProxy {
   public async exists(repo_path?: string): Promise<boolean> {
     if (!repo_path) {
       if (!this.repository) {
+        this.onError.dispatch(new Error('Checking unknown repository'));
+
         return false;
       }
 
       repo_path = this.repository;
     }
 
-    return exists(this.__command, repo_path);
+    try {
+      return exists(this.__command, repo_path);
+    } catch (err) {
+      this.onError.dispatch(err);
+
+      return false;
+    }
   }
 
   public verbose(...messages: Array<string | Buffer>) {
@@ -208,9 +243,7 @@ export class GitSmartProxy {
     return service;
   }
 
-  public static middleware(options: MiddlewareOptions = {}): Middleware {
-    const {key_name = 'proxy', auto_deploy} = options;
-
+  public static middleware({key_name = 'proxy', ...options}: MiddlewareOptions = {}): Middleware {
     let command: GitCommand;
     if ('function' === typeof options.git) {
       command = options.git;
@@ -239,14 +272,18 @@ export class GitSmartProxy {
       };
     }
 
-    return async(context, next) => {
+    return async(context: Context, next) => {
       // Add proxy to context
       const proxy = context.state[key_name] = await GitSmartProxy.create(context, command);
+
+      if (options.throw_errors) {
+        proxy.onError.add((err) => context.throw(err));
+      }
 
       await next();
 
       // If auto_deploy is defined and request is still pending -> deploy
-      if (undefined !== auto_deploy && proxy.status === RequestStatus.PENDING) {
+      if (undefined !== options.auto_deploy && proxy.status === RequestStatus.PENDING) {
         // No repository -> Not found
         if (!(await proxy.exists())) {
           return proxy.reject(HttpCodes.NOT_FOUND);
@@ -258,19 +295,15 @@ export class GitSmartProxy {
         }
 
         // Accept or reject
-        return auto_deploy ? proxy.accept() : proxy.reject();
+        return options.auto_deploy ? proxy.accept() : proxy.reject();
       }
     };
   }
 }
 
-export function middleware(options?: MiddlewareOptions) {
-  return GitSmartProxy.middleware(options);
-}
+export const middleware = GitSmartProxy.middleware;
 
-export function create(context: Context, command: GitCommand) {
-  return GitSmartProxy.create(context, command);
-}
+export const create = GitSmartProxy.create;
 
 export interface MiddlewareOptions {
   /**
@@ -299,4 +332,8 @@ export interface MiddlewareOptions {
    * If set, then automatically accepts/rejects request if no action has been taken.
    */
   auto_deploy?: boolean;
+  /**
+   * Throw errors to context;
+   */
+  throw_errors?: boolean;
 }
