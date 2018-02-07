@@ -178,6 +178,43 @@ const server = createServer(app.callback());
 server.listen(3000, () => console.log('listening on port 3000'));
 ```
 
+Throw errors to context (with auto deploy)
+
+```js
+const { createServer } = require('http');
+const koa =  require('koa');
+const { middleware } = require('koa-git-smart-proxy');
+
+const {
+  GIT_ROOT_FOLDER: root_folder = '/data/repos',
+} = process.env;
+
+const app = new koa;
+
+app.use(async(ctx, next) => {
+  try {
+    await next();
+
+  // Error __may__ be thrown from middleware
+  } catch (err) {
+    console.log(err);
+
+    ctx.body = err.message;
+    ctx.status = err.status || 500;
+  }
+})
+
+app.use(middleware({
+  throw_errors: true,
+  auto_deploy: true,
+  git: root_folder,
+}));
+
+const server = createServer(app.callback());
+
+server.listen(3000, () => console.log('listening on port 3000'));
+```
+
 ### **GitSmartProxy** (class) (export)
 
 *Note:* When creating new instances, use exported function
@@ -203,6 +240,55 @@ or static method [create](#gitsmartproxycreate-context-command--static-method).
 - `repository`
   \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
   Repoistory name/path.
+
+#### Signals
+
+- `onAccept`
+  \<[Signal\<T>](https://www.npmjs.com/package/micro-signals#signal)>
+  Dispatched when request is accepted.
+  Where `T` (payload) is accepted path for repository.
+
+- `onReject`
+  \<[Signal\<T>](https://www.npmjs.com/package/micro-signals#signal)>
+  Dispatched when request is rejected.
+  Where `T` (payload) is an object containing properties 'reason' and 'status'.
+
+- `onFinal`
+  \<[Signal\<T>](https://www.npmjs.com/package/micro-signals#signal)>
+  Dispatched when request is either accepted or rejected.
+  Has no payload.
+
+- `onError`
+  \<[Signal\<T>](https://www.npmjs.com/package/micro-signals#signal)>
+  Dispatched when something goes wrong.
+  Where `T` (payload) is an instance of Error.
+
+##### Signals Usage Example
+
+Usage example. (With auto deploy)
+
+```js
+/* ... init app and add middleware */
+
+app.use(async(ctx, next) => {
+  const {proxy} = ctx.state;
+
+  // Fires only when accepted
+  proxy.onAccept.add((repo_path) => console.log('accepted %s', repo_path));
+
+  // Fires only when rejected
+  proxy.onReject.add(({reason, status}) =>
+    console.log('rejected with reason "%s" and status %s', reason, status));
+
+  // Fires either when rejected or accepted
+  proxy.onFinal.add(() => console.log('service is done'));
+
+  // Fires on any error in accept, reject or exists.
+  proxy.onError.add((err) => console.error(err));
+});
+
+
+```
 
 #### Public static methods
 
@@ -362,6 +448,42 @@ app.use(async(ctx) => {
 
   return proxy.accept();
 });
+
+const server = createServer(app.callback());
+
+server.listen(3000, () => console.log('listening on port 3000'));
+```
+Throw errors to context (with auto deploy)
+
+```js
+const { createServer } = require('http');
+const koa =  require('koa');
+const { GitSmartProxy } = require('koa-git-smart-proxy');
+
+const {
+  GIT_ROOT_FOLDER: root_folder = '/data/repos',
+} = process.env;
+
+const app = new koa;
+
+app.use(async(ctx, next) => {
+  try {
+    await next();
+
+  // Error __may__ be thrown from middleware
+  } catch (err) {
+    console.log(err);
+
+    ctx.body = err.message;
+    ctx.status = err.status || 500;
+  }
+})
+
+app.use(GitSmartProxy.middleware({
+  throw_errors: true,
+  auto_deploy: true,
+  git: root_folder,
+}));
 
 const server = createServer(app.callback());
 
@@ -552,6 +674,11 @@ Middleware options.
   \<[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)>
   Where to store instance in `Context.state`.
   Defaults to `'proxy'`.
+
+- `throw_errors`
+  \<[Boolean](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean)>
+  Throw errors on context.
+  Defaults to `false`.
 
 ### **GitCommand** (type) (typescript only export)
 
