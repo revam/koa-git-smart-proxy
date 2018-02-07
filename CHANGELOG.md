@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## Added
+
+- Signals ('onAccept', 'onReject', 'onError' & 'onFinal')
+
 ## [1.0.1] - 2018-01-16
 
 ### Added
