@@ -1,3 +1,5 @@
+# Archived. See [git-service](https://github.com/revam/node-git-monorepo) instead.
+
 # koa-git-smart-proxy
 
 A proxy library for custom git deploy logic made for koa.
